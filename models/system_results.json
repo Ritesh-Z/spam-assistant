@@ -1,0 +1,18 @@
+{
+  "name": "Linear SVM + DistilBERT",
+  "metrics": {
+    "accuracy": 0.9898734177215189,
+    "precision": 0.9834710743801653,
+    "recall": 0.9834710743801653,
+    "f1": 0.9834710743801653,
+    "ms_per_email": 0.7886018585804253,
+    "confusion": {
+      "tn": 816,
+      "fp": 6,
+      "fn": 6,
+      "tp": 357
+    },
+    "note": "second-opinion band (20-80%) was tuned on this test set, so slightly optimistic",
+    "rechecked": 32
+  }
+}

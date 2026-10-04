@@ -1,0 +1,21 @@
+{
+  "name": "DistilBERT",
+  "metrics": {
+    "accuracy": 0.9864978902953586,
+    "precision": 0.9753424657534246,
+    "recall": 0.9807162534435262,
+    "f1": 0.978021978021978,
+    "ms_per_email": 28.710209451446836,
+    "confusion": {
+      "tn": 813,
+      "fp": 9,
+      "fn": 7,
+      "tp": 356
+    }
+  },
+  "device": "cuda",
+  "epochs": 3,
+  "max_len": 256,
+  "train_size": 4989,
+  "runtime": "onnxruntime int8 (CPU)"
+}

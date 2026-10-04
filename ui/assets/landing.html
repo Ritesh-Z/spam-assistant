@@ -1,0 +1,150 @@
+<div class="sv">
+  <!-- 001 · hero ---------------------------------------------------------->
+  <section class="hero-wrap">
+    <div class="frame">
+      <div class="hero">
+        <div class="hero-canvas" data-scene></div>
+        <header class="hero-top">
+          <div>
+            <div class="brand">(SIEVE_AI)</div>
+            <div class="ver">[ v1.0 · spam classifier ]</div>
+          </div>
+          <nav class="nav">
+            <a href="#" data-scroll="how">how it works <i>↗</i></a>
+            <a href="#" data-scroll="demo">live demo <i>↗</i></a>
+            <a href="#" data-scroll="labels">labels <i>↗</i></a>
+            <a href="#" data-nav="Inbox">open app <i>↗</i></a>
+          </nav>
+        </header>
+
+        <div class="hero-bottom">
+          <h1 class="headline">
+            <span class="l1">EVERY EMAIL,</span>
+            <span class="l2">SORTED</span>
+            <span class="l3"><em>before</em> <b>//</b> YOU</span>
+            <span class="l4">OPEN IT</span>
+          </h1>
+
+          <div class="mid">
+            <div class="legend" data-legend>
+              <button data-focus="spam"><span class="dot"></span>spam</button>
+              <button data-focus="suspicious"><span class="dot"></span>suspicious</button>
+              <button data-focus="promotion"><span class="dot"></span>promotion</button>
+              <button data-focus="update"><span class="dot"></span>update</button>
+              <button data-focus="safe"><span class="dot"></span>safe</button>
+            </div>
+            <button class="scroll-cue" data-scroll="how" aria-label="Scroll to how it works">↓</button>
+          </div>
+
+          <aside class="panel">
+            <div class="panel-top"><span class="mark">( S )</span><span class="idx">[ 001 / 004 ]</span></div>
+            <p>Sieve reads your Gmail with read-only access, scores every message with a model
+              trained on real email, and shows you why. Each card is one email: it goes in grey
+              and comes out in the colour of its label.</p>
+            <div class="cta-row">
+              <button class="cta" data-nav="Inbox">OPEN THE ASSISTANT</button>
+              <button class="ghost" data-nav="Quick check">quick check ↗</button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <div class="under-glow"></div>
+  </section>
+
+  <!-- 002 · how it works -------------------------------------------------->
+  <section class="sec" id="how">
+    <div class="sec-head">
+      <span class="idx">[ 002 / 004 ]</span>
+      <h2>FOUR STEPS, <em>one</em> SECOND</h2>
+      <p>What happens to every email between your inbox and its label.</p>
+    </div>
+    <ol class="steps">
+      <li>
+        <span class="n">01</span><h3>Read</h3>
+        <p>Signs in with Google and fetches your latest 50 emails. Read-only, and nothing is stored.</p>
+        <span class="tag">gmail.readonly</span>
+      </li>
+      <li>
+        <span class="n">02</span><h3>Clean</h3>
+        <p>Strips HTML and headers, turns links, addresses and numbers into tokens, then builds TF-IDF over words and word pairs.</p>
+        <span class="tag">tf-idf · 1–2 grams</span>
+      </li>
+      <li>
+        <span class="n">03</span><h3>Score</h3>
+        <p>Gmail's sender verification comes first. Then a <span data-best>Linear SVM</span> on words and character
+          patterns scores the text; when it is unsure, a DistilBERT model gives a second opinion.</p>
+        <span class="tag">sender check + ml</span>
+      </li>
+      <li>
+        <span class="n">04</span><h3>Explain</h3>
+        <p>You see the label, the trigger words and the warning signs. Wrong? One click teaches the model.</p>
+        <span class="tag">feedback → retrain</span>
+      </li>
+    </ol>
+    <div class="flow" aria-hidden="true"><span></span></div>
+  </section>
+
+  <!-- 003 · live demo ----------------------------------------------------->
+  <section class="sec" id="demo">
+    <div class="sec-head">
+      <span class="idx">[ 003 / 004 ]</span>
+      <h2>SEE THE <em>inside</em></h2>
+      <p>Pick an email to see how the model scores it. Inside the app, each email also gets a step-by-step “how Sieve decided” panel.</p>
+    </div>
+    <div class="demo">
+      <div class="demo-list" data-demo-list role="tablist"></div>
+      <div class="demo-card" data-demo-card></div>
+    </div>
+    <p class="note">Real output from the trained model in this project, run on sample emails written for this page.</p>
+  </section>
+
+  <!-- 004 · labels + model ------------------------------------------------>
+  <section class="sec" id="labels">
+    <div class="sec-head">
+      <span class="idx">[ 004 / 004 ]</span>
+      <h2>FIVE <em>colours</em>, ONE GLANCE</h2>
+      <p>A high bar for Spam keeps real mail visible. Hiding a real email costs more than missing a spam.
+        Mail you signed up for is split into marketing and updates, so it never drowns the rest.</p>
+    </div>
+    <div class="labels-grid">
+      <div class="lab l-spam"><span class="sw"></span><h3>Spam</h3><p>Spam probability of 85% or more. Phishing, scams, junk.</p><code data-th="spam">≥ 85%</code></div>
+      <div class="lab l-suspicious"><span class="sw"></span><h3>Suspicious</h3><p>Between 60% and 85%. Not hidden, but worth a careful look.</p><code data-th="suspicious">60 – 85%</code></div>
+      <div class="lab l-promotion"><span class="sw"></span><h3>Promotion</h3><p>Marketing you signed up for: Gmail's Promotions tab, or sales wording like "30% off" or "try Pro".</p><code data-th="promotion">list mail · ads</code></div>
+      <div class="lab l-update"><span class="sw"></span><h3>Update</h3><p>Automated notices: account and security notices, terms changes, product news, newsletters.</p><code data-th="update">list mail · notices</code></div>
+      <div class="lab l-safe"><span class="sw"></span><h3>Safe</h3><p>Everything else: people, colleagues, personal mail.</p><code data-th="safe">&lt; 60%</code></div>
+    </div>
+    <div class="flagline">
+      <span class="flagpill">⚑ ALERT</span>
+      <p><b>A flag, not a label.</b> Security notices, sign-in codes and payment problems from a sender Gmail
+        <em>verified</em> as a known service or bank are flagged and pinned to the top of your inbox.
+        Urgent wording from anyone else is a warning sign instead, so phishing can never earn the flag.</p>
+    </div>
+
+    <div class="model">
+      <div class="model-head">
+        <span class="idx">model comparison</span>
+        <span class="mono small" data-testset></span>
+      </div>
+      <div class="kpis" data-kpis></div>
+      <div class="model-sub">Where each model goes wrong</div>
+      <div class="bars-table" data-models></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="frame frame-sm">
+      <div class="foot-in">
+        <div>
+          <div class="brand">(SIEVE_AI)</div>
+          <p>Spam email classification assistant. Read-only Gmail access; emails are processed in memory
+            and never stored. Only the corrections you click are saved.</p>
+        </div>
+        <div class="cta-row">
+          <button class="cta" data-nav="Inbox">OPEN THE ASSISTANT</button>
+          <button class="ghost" data-nav="Insights">insights ↗</button>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>

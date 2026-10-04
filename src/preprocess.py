@@ -126,6 +126,29 @@ def clean_text(text: str) -> str:
     return " ".join(tokens)
 
 
+def char_text(text: str) -> str:
+    """Input for the character n-gram features: lowercased text, HTML removed.
+
+    Character n-grams catch disguised spam words ("fr33", "v1agra", "c1ick")
+    that word features miss. Kept separate from clean_text(), which removes
+    exactly the digits and punctuation these n-grams need.
+    """
+    if not isinstance(text, str):
+        text = "" if text is None else str(text)
+    return _WS_RE.sub(" ", strip_html(text).lower())[:6000]
+
+
+def build_char_vectorizer(max_features: int = 150_000) -> TfidfVectorizer:
+    """TF-IDF over character 3-5 grams inside word boundaries."""
+    return TfidfVectorizer(
+        analyzer="char_wb",
+        ngram_range=(3, 5),
+        max_features=max_features,
+        min_df=3,
+        sublinear_tf=True,
+    )
+
+
 def build_vectorizer(max_features: int = 50_000) -> TfidfVectorizer:
     """TF-IDF over single words and word pairs."""
     return TfidfVectorizer(

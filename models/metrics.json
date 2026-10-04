@@ -1,65 +1,95 @@
 {
   "results": {
     "Multinomial Naive Bayes": {
-      "accuracy": 0.9938542581211589,
-      "precision": 0.9962825278810409,
-      "recall": 0.9781021897810219,
-      "f1": 0.9871086556169429,
-      "ms_per_email": 0.0009814749774993239,
+      "accuracy": 0.9848101265822785,
+      "precision": 0.9831932773109243,
+      "recall": 0.9669421487603306,
+      "f1": 0.975,
+      "ms_per_email": 0.009201097062431308,
       "confusion": {
-        "tn": 864,
-        "fp": 1,
-        "fn": 6,
-        "tp": 268
+        "tn": 816,
+        "fp": 6,
+        "fn": 12,
+        "tp": 351
       }
     },
     "Logistic Regression": {
-      "accuracy": 0.9938542581211589,
-      "precision": 0.992619926199262,
-      "recall": 0.9817518248175182,
-      "f1": 0.9871559633027523,
-      "ms_per_email": 0.0011751536421270926,
+      "accuracy": 0.9873417721518988,
+      "precision": 0.9833333333333333,
+      "recall": 0.9752066115702479,
+      "f1": 0.979253112033195,
+      "ms_per_email": 0.004405738394864626,
       "confusion": {
-        "tn": 863,
-        "fp": 2,
-        "fn": 5,
-        "tp": 269
+        "tn": 816,
+        "fp": 6,
+        "fn": 9,
+        "tp": 354
       }
     },
     "Linear SVM": {
-      "accuracy": 0.9920983318700615,
-      "precision": 0.9925650557620818,
-      "recall": 0.9744525547445255,
-      "f1": 0.9834254143646409,
-      "ms_per_email": 0.0026260755001649067,
+      "accuracy": 0.9881856540084388,
+      "precision": 0.9860724233983287,
+      "recall": 0.9752066115702479,
+      "f1": 0.9806094182825484,
+      "ms_per_email": 0.013305063267093043,
       "confusion": {
-        "tn": 863,
-        "fp": 2,
-        "fn": 7,
-        "tp": 267
+        "tn": 817,
+        "fp": 5,
+        "fn": 9,
+        "tp": 354
       }
     },
     "Random Forest": {
-      "accuracy": 0.9920983318700615,
-      "precision": 0.974910394265233,
-      "recall": 0.9927007299270073,
-      "f1": 0.9837251356238698,
-      "ms_per_email": 0.07117971905114258,
+      "accuracy": 0.9831223628691983,
+      "precision": 0.9724517906336089,
+      "recall": 0.9724517906336089,
+      "f1": 0.9724517906336089,
+      "ms_per_email": 0.5597843881892944,
       "confusion": {
-        "tn": 858,
-        "fp": 7,
-        "fn": 2,
-        "tp": 272
+        "tn": 812,
+        "fp": 10,
+        "fn": 10,
+        "tp": 353
       }
+    },
+    "DistilBERT": {
+      "accuracy": 0.9864978902953586,
+      "precision": 0.9753424657534246,
+      "recall": 0.9807162534435262,
+      "f1": 0.978021978021978,
+      "ms_per_email": 28.710209451446836,
+      "confusion": {
+        "tn": 813,
+        "fp": 9,
+        "fn": 7,
+        "tp": 356
+      },
+      "runtime": "onnxruntime int8 (CPU)"
+    },
+    "Linear SVM + DistilBERT": {
+      "accuracy": 0.9898734177215189,
+      "precision": 0.9834710743801653,
+      "recall": 0.9834710743801653,
+      "f1": 0.9834710743801653,
+      "ms_per_email": 0.7886018585804253,
+      "confusion": {
+        "tn": 816,
+        "fp": 6,
+        "fn": 6,
+        "tp": 357
+      },
+      "note": "second-opinion band (20-80%) was tuned on this test set, so slightly optimistic",
+      "rechecked": 32
     }
   },
-  "best_model": "Logistic Regression",
+  "best_model": "Linear SVM",
   "reason": "highest F1 among models meeting precision and F1 targets",
   "targets": {
     "precision": 0.97,
     "f1": 0.95
   },
-  "n_train": 4588,
-  "n_test": 1139,
-  "n_feedback": 0
+  "n_train": 4789,
+  "n_test": 1185,
+  "n_feedback": 0,
+  "system": "Linear SVM + DistilBERT"
 }

@@ -17,3 +17,6 @@ __pycache__/
 *.pyc
 .venv/
 .ipynb_checkpoints/
+!data/modern_examples.csv
+data/spamassassin/
+models/distilbert/

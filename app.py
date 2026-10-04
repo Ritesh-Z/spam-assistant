@@ -1,30 +1,40 @@
-"""Spam Email Classification Assistant (Streamlit).
+"""Sieve: Spam Email Classification Assistant (Streamlit).
 
 Run:  streamlit run app.py
-Screens: Inbox, Email detail, Quick check, Insights.
+Screens: Home (landing), Inbox, Email detail, Quick check, Insights.
 """
 from __future__ import annotations
 
 import json
 from collections import Counter
+from html import escape
 from pathlib import Path
 
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
-from src import feedback, gmail_client
-from src.predict import (ModelNotTrained, get_bundle, highlight_html, parse_eml,
-                         predict)
+from src import feedback, gmail_client, gmail_dataset, oauth_popup
+from src.predict import (MODEL_PATH, ModelNotTrained, get_bundle, highlight_html,
+                         parse_eml, predict)
 from src.train import MODELS_DIR, retrain_with_feedback
+from ui import email_view, theme
+from ui.components import email_list, google_signin, landing, sorting_strip
+from ui.theme import LABEL_COLORS
 
 ROOT = Path(__file__).resolve().parent
 DATA_PATH = ROOT / "data" / "emails.csv"
+PAGES = ["Home", "Inbox", "Email detail", "Quick check", "Insights"]
+PAGE_NO = {p: f"{i:02d}" for i, p in enumerate(PAGES)}
+# Inbox filters: name -> which results to keep (None = all)
+FILTERS = {
+    "All": None,
+    "⚑ Alerts": lambda r: bool(r.get("alert")),
+    "Spam & suspicious": lambda r: r["label"] in ("Spam", "Suspicious"),
+    "Promotions": lambda r: r["label"] == "Promotion",
+    "Updates": lambda r: r["label"] == "Update",
+    "Safe": lambda r: r["label"] == "Safe",
+}
 
-st.set_page_config(page_title="Spam Email Assistant", page_icon="📧", layout="wide")
-
-RED, GREEN = "#dc2626", "#16a34a"
+st.set_page_config(page_title="Sieve · Spam Email Assistant", page_icon="◎", layout="wide")
 
 # ----------------------------------------------------------------------------
 # state (all in memory; email content is never written to disk)
@@ -34,26 +44,34 @@ for key, default in {
     "results": {},       # email id -> prediction dict
     "selected": None,    # email id shown on the detail screen
     "quick": None,       # last quick check {text, result}
-    "page": "Inbox",
-    "flash": None,
+    "page": "Home",
 }.items():
     st.session_state.setdefault(key, default)
 
-
-def badge(label: str, confidence: float) -> str:
-    color = RED if label == "Spam" else GREEN
-    return (f'<span style="background:{color};color:white;padding:2px 10px;'
-            f'border-radius:12px;font-weight:600;font-size:0.85rem">'
-            f'{label} {confidence:.0%}</span>')
+# A page change requested after the sidebar radio was drawn (e.g. from the
+# landing page) is applied here, before the radio exists in this run.
+if "_goto" in st.session_state:
+    st.session_state.page = st.session_state.pop("_goto")
 
 
-def require_model() -> bool:
+def filter_bar(slot, results: dict) -> str:
+    """Inbox filter with counts. Empty filters are hidden (they come back when
+    an email of that kind arrives), so every button leads somewhere."""
+    counts = {name: len(results) if keep is None else sum(1 for r in results.values() if keep(r))
+              for name, keep in FILTERS.items()}
+    options = [name for name in FILTERS if name == "All" or counts[name]]
+    if st.session_state.get("inbox_filter") not in options:
+        st.session_state.inbox_filter = "All"
+    return slot.segmented_control("Show", options, key="inbox_filter",
+                                  format_func=lambda n: f"{n}  {counts[n]}",
+                                  label_visibility="collapsed") or "All"
+
+
+def model_ready() -> bool:
     try:
         get_bundle()
         return True
-    except ModelNotTrained as e:
-        st.error(str(e))
-        st.info("Train the model first: `python -m src.train --data data/emails.csv`")
+    except ModelNotTrained:
         return False
 
 
@@ -62,125 +80,169 @@ def go_to(page: str, email_id: str | None = None) -> None:
     st.session_state.selected = email_id
 
 
+def classify(emails: list[dict]) -> dict:
+    return {e["id"]: predict(f"{e['subject']}\n{e['body']}", e.get("mail_kind"),
+                             e.get("sender", ""), e.get("verified_domain"))
+            for e in emails}
+
+
 def scan_inbox() -> None:
     emails = gmail_client.fetch_latest(50)
     st.session_state.emails = emails
-    st.session_state.results = {
-        e["id"]: predict(f"{e['subject']}\n{e['body']}") for e in emails
-    }
+    st.session_state.results = classify(emails)
+    st.session_state.sample = False
 
 
-# ----------------------------------------------------------------------------
-# shared result card
-# ----------------------------------------------------------------------------
-def result_card(text: str, result: dict, key: str) -> None:
-    c1, c2 = st.columns([1, 3])
-    with c1:
-        st.markdown(badge(result["label"], result["confidence"]), unsafe_allow_html=True)
-        st.caption(f"Spam probability: {result['spam_prob']:.1%}")
-        st.caption(f"Model: {result['model_name']}")
-    with c2:
-        if result["empty_after_cleaning"]:
-            st.warning("This email has almost no readable text, so the result is unreliable.")
-        if result["warnings"]:
-            st.markdown("**Warning signs**")
-            for w in result["warnings"]:
-                st.markdown(f"- {w}")
-        else:
-            st.markdown("**Warning signs:** none found")
+def load_sample_inbox() -> None:
+    """A small inbox of written examples, for demos without Gmail or internet."""
+    from ui.demo import SAMPLES
+    emails = [{"id": f"sample-{i}", "sender": s["sender"], "subject": s["subject"],
+               "date": "sample email", "body": s["body"], "mail_kind": s["kind"]}
+              for i, s in enumerate(SAMPLES)]
+    st.session_state.emails = emails
+    st.session_state.results = classify(emails)
+    st.session_state.sample = True
 
-    e1, e2 = st.columns(2)
-    with e1:
-        st.markdown("**Words pushing toward Spam**")
-        if result["spam_terms"]:
-            st.dataframe(pd.DataFrame(result["spam_terms"], columns=["word", "weight"]),
-                         hide_index=True, width="stretch")
-        else:
-            st.caption("None")
-    with e2:
-        st.markdown("**Words pushing toward Safe**")
-        if result["safe_terms"]:
-            df = pd.DataFrame(result["safe_terms"], columns=["word", "weight"])
-            df["weight"] = df["weight"].abs()
-            st.dataframe(df, hide_index=True, width="stretch")
-        else:
-            st.caption("None")
 
-    st.markdown("**Email text** (trigger words highlighted)")
-    st.markdown(
-        f'<div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;'
-        f'max-height:360px;overflow:auto;line-height:1.5">'
-        f'{highlight_html(text, result["trigger_words"])}</div>',
-        unsafe_allow_html=True)
+def sign_out() -> None:
+    gmail_client.disconnect()
+    for k in ("emails", "results"):
+        st.session_state[k] = [] if k == "emails" else {}
+    st.session_state.selected = None
+    st.session_state.pop("account", None)
+    st.session_state.sample = False
 
-    st.markdown("**Is this label wrong?**")
-    b1, b2, _ = st.columns([1, 1, 4])
-    if b1.button("Not spam", key=f"{key}_ham"):
-        feedback.save_feedback(text, False)
-        st.success("Saved. Thanks, this will be used the next time you retrain.")
-    if b2.button("Is spam", key=f"{key}_spam"):
-        feedback.save_feedback(text, True)
-        st.success("Saved. Thanks, this will be used the next time you retrain.")
+
+def load_metrics() -> dict | None:
+    path = MODELS_DIR / "metrics.json"
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+@st.cache_data(show_spinner=False)
+def landing_demo(model_mtime: float) -> list[dict]:
+    from ui.demo import build_demo   # needs a trained model
+    return build_demo()
 
 
 # ----------------------------------------------------------------------------
 # sidebar
 # ----------------------------------------------------------------------------
 with st.sidebar:
-    st.title("📧 Spam Assistant")
-    page = st.radio("Menu", ["Inbox", "Email detail", "Quick check", "Insights"],
-                    key="page")
-    st.divider()
+    st.html('<div class="sv-brand">(SIEVE_AI)</div>'
+            '<div class="sv-brand-v">[ v1.0 · spam classifier ]</div>')
+    page = st.radio("Menu", PAGES, key="page",
+                    format_func=lambda p: f"{PAGE_NO[p]}   {p.lower()}")
+    theme.kicker("training")
     n_fb = feedback.count_feedback()
     st.caption(f"Saved corrections: {n_fb}")
-    if st.button("Retrain with my corrections", disabled=n_fb == 0):
+    if gmail_client.is_connected():
+        n_gm = gmail_dataset.count_examples()
+        st.caption(f"Training examples from your Gmail: {n_gm}")
+        if st.button("Learn from my Gmail", width="stretch",
+                     help="Saves up to 300 emails from your Spam folder and 600 from "
+                          "your inbox to data/gmail_examples.csv (on this computer only) "
+                          "and uses them as extra training data. Then click Retrain."):
+            try:
+                with st.spinner("Reading your Spam folder and inbox (read-only)..."):
+                    c = gmail_dataset.build()
+                st.success(f"Saved {c['spam']} spam + {c['ham']} safe emails. "
+                           "Click Retrain to use them.")
+            except Exception as e:
+                st.error(f"Could not read Gmail: {e}")
+        if n_gm and st.button("Delete Gmail examples", width="stretch"):
+            gmail_dataset.delete_examples()
+            st.rerun()
+    if st.button("Retrain model", width="stretch",
+                 help="Retrains on the dataset plus your corrections and Gmail examples."):
         if not DATA_PATH.exists():
-            st.error("data/emails.csv not found, so there is nothing to retrain on.")
+            st.error("data/emails.csv not found. Run: python -m src.fetch_dataset")
         else:
             with st.spinner("Retraining (this can take a few minutes)..."):
                 retrain_with_feedback(str(DATA_PATH), feedback.all_feedback())
-            st.success("Model retrained. New predictions use the updated model.")
-            st.session_state.results = {}  # force re-scan with the new model
-    st.divider()
-    st.caption("Read-only Gmail access. Emails are processed in memory and not stored. "
-               "Only corrections you click are saved.")
+            st.session_state.results = classify(st.session_state.emails)
+            st.success("Model retrained. Your inbox has been relabelled.")
+    connected = gmail_client.is_connected()
+    if connected and "account" not in st.session_state:
+        try:
+            st.session_state.account = gmail_client.account_email()
+        except Exception:
+            st.session_state.account = ""
+    st.html(theme.account(st.session_state.get("account", "") if connected else None))
+    if connected:
+        st.button("Sign out", width="stretch", on_click=sign_out,
+                  help="Revokes the app's access at Google and deletes the local sign-in token.")
+    st.html('<div class="sv-note" style="margin-top:16px;line-height:1.6">Read-only Gmail access. '
+            'Emails are processed in memory and not stored. Only corrections you click are saved.'
+            '</div>')
 
-if not require_model():
+# ----------------------------------------------------------------------------
+# Home (landing)
+# ----------------------------------------------------------------------------
+if page == "Home":
+    theme.inject(home=True)
+    demo = landing_demo(MODEL_PATH.stat().st_mtime) if model_ready() else []
+    nav = landing(demo, load_metrics())
+    if nav in PAGES:
+        st.session_state._goto = nav
+        st.rerun()
+    st.stop()
+
+theme.inject()
+if not model_ready():
+    theme.page_header("[ setup ]", "TRAIN THE <em>model</em> FIRST",
+                      "No trained model found. Download the dataset and train:")
+    st.code("python -m src.fetch_dataset\npython -m src.train --data data/emails.csv",
+            language="bash")
     st.stop()
 
 # ----------------------------------------------------------------------------
 # Inbox
 # ----------------------------------------------------------------------------
 if page == "Inbox":
-    st.header("Inbox")
+    theme.page_header(f"[ {PAGE_NO[page]} / 04 ] · inbox", "YOUR INBOX, <em>sorted</em>",
+                      "Your latest 50 emails, each labelled and explained. Open one to see why.")
 
-    if not gmail_client.is_connected():
-        st.write("Sign in with Google to scan your latest 50 emails. Access is read-only.")
-        if st.button("Connect Gmail", type="primary"):
+    connected = gmail_client.is_connected()
+    if not connected and not st.session_state.get("sample"):
+        st.html('<div class="sv-rc" style="max-width:640px"><div class="sv-h4">connect</div>'
+                '<p style="margin:0 0 6px;font-size:14px;color:var(--sv-ink-2)">Sign in with '
+                'Google to scan your latest 50 emails. Access is read-only: the assistant can '
+                'never send, change or delete mail. No Gmail at hand? Try the sample inbox.</p></div>')
+        b1, b2 = st.columns([3, 2], vertical_alignment="top")
+        with b1:
             try:
-                with st.spinner("Waiting for Google sign-in in your browser..."):
-                    gmail_client.connect()
-                scan_inbox()
-                st.rerun()
+                signin = oauth_popup.start()
+                done = google_signin(signin["auth_url"], signin["status_url"])
+                if done and gmail_client.is_connected():
+                    st.session_state.pop("account", None)
+                    with st.spinner("Fetching and labelling emails..."):
+                        scan_inbox()
+                    st.rerun()
             except gmail_client.GmailSetupError as e:
                 st.error(str(e))
-            except Exception as e:  # network or OAuth problems
-                st.error(f"Could not connect to Gmail: {e}")
-        st.caption("No Gmail yet? Use **Quick check** in the sidebar to paste or upload an email.")
-    else:
-        top = st.columns([1, 1, 1, 3])
-        if top[0].button("Rescan"):
-            try:
-                with st.spinner("Fetching and labelling emails..."):
-                    scan_inbox()
-            except Exception as e:
-                st.error(f"Could not fetch emails: {e}")
-        if top[1].button("Disconnect"):
-            gmail_client.disconnect()
-            st.session_state.emails, st.session_state.results = [], {}
+        if b2.button("Try with sample emails", width="stretch"):
+            load_sample_inbox()
             st.rerun()
-        only_spam = top[2].toggle("Only spam")
-        auto = top[3].toggle("Auto-scan every 3 minutes while this page is open")
+    else:
+        if connected:
+            top = st.columns([1, 5, 1.7], vertical_alignment="center")
+            if top[0].button("Rescan", width="stretch"):
+                try:
+                    with st.spinner("Fetching and labelling emails..."):
+                        scan_inbox()
+                except Exception as e:
+                    st.error(f"Could not fetch emails: {e}")
+            filter_slot = top[1].empty()   # filled once results are ready
+            auto = top[2].toggle("Auto-scan · 3 min")
+        else:
+            top = st.columns([1.4, 5.3], vertical_alignment="center")
+            if top[0].button("Clear sample", width="stretch"):
+                st.session_state.emails, st.session_state.results = [], {}
+                st.session_state.sample = False
+                st.rerun()
+            filter_slot = top[1].empty()   # filled once results are ready
+            auto = False
+            st.caption("Sample inbox: emails written for the demo, labelled by the real model.")
 
         if auto:
             @st.fragment(run_every="3m")
@@ -191,67 +253,97 @@ if page == "Inbox":
                     pass
             _auto_scan()
 
-        if not st.session_state.emails and not st.session_state.results:
+        if connected and (not st.session_state.emails or st.session_state.get("sample")):
             try:
                 with st.spinner("Fetching and labelling emails..."):
                     scan_inbox()
             except Exception as e:
                 st.error(f"Could not fetch emails: {e}")
+        elif (len(st.session_state.results) < len(st.session_state.emails)
+              or any("mail_kind" not in r for r in st.session_state.results.values())):
+            st.session_state.results = classify(st.session_state.emails)
 
-        rows = []
-        for e in st.session_state.emails:
-            r = st.session_state.results.get(e["id"])
-            if r is None:
-                continue
-            if only_spam and r["label"] != "Spam":
-                continue
-            rows.append((e, r))
+        emails = [e for e in st.session_state.emails if e["id"] in st.session_state.results]
+        sorting_strip([st.session_state.results[e["id"]]["label"] for e in emails])
 
-        st.caption(f"Showing {len(rows)} of {len(st.session_state.emails)} emails")
-        for e, r in rows:
-            c1, c2, c3 = st.columns([5, 2, 1])
-            with c1:
-                st.markdown(f"**{e['subject'][:90]}**")
-                st.caption(e["sender"][:80])
-            with c2:
-                st.markdown(badge(r["label"], r["confidence"]), unsafe_allow_html=True)
-            with c3:
-                st.button("Open", key=f"open_{e['id']}",
-                          on_click=go_to, args=("Email detail", e["id"]))
-            st.divider()
+        res = st.session_state.results
+        show = filter_bar(filter_slot, res)
+        keep = FILTERS.get(show or "All")
+        if keep:
+            emails = [e for e in emails if keep(res[e["id"]])]
+        # alerts first, then Gmail's order (newest first)
+        emails.sort(key=lambda e: res[e["id"]].get("alert") is None)
+        n_alerts = sum(1 for r in res.values() if r.get("alert"))
+        theme.kicker(f"showing {len(emails)} of {len(st.session_state.emails)} emails"
+                     + (f" · {n_alerts} ⚑ alert{'s' if n_alerts != 1 else ''} pinned on top"
+                        if n_alerts else ""))
+        st.session_state.inbox_order = [e["id"] for e in emails]
+        opened = email_list([
+            {"id": e["id"], "subject": e["subject"][:140], "sender": e["sender"][:100],
+             "label": res[e["id"]]["label"], "confidence": res[e["id"]]["confidence"],
+             "note": res[e["id"]].get("badge_note"), "alert": res[e["id"]].get("alert")}
+            for e in emails])
+        if opened:
+            st.session_state.selected = opened
+            st.session_state._goto = "Email detail"
+            st.rerun()
 
 # ----------------------------------------------------------------------------
 # Email detail
 # ----------------------------------------------------------------------------
 elif page == "Email detail":
-    st.header("Email detail")
     email = next((e for e in st.session_state.emails
                   if e["id"] == st.session_state.selected), None)
     if email is None:
-        st.info("Pick an email from the Inbox first.")
+        theme.page_header(f"[ {PAGE_NO[page]} / 04 ] · email detail", "NO EMAIL <em>open</em>",
+                          "Pick an email from the Inbox to see it here.")
+        st.button("Go to inbox", on_click=go_to, args=("Inbox",))
     else:
-        st.subheader(email["subject"])
-        st.caption(f"From: {email['sender']}   |   {email['date']}")
+        # previous / next in the same order (and filter) as the inbox list
+        order = [i for i in st.session_state.get("inbox_order", []) if i in st.session_state.results]
+        if email["id"] not in order:
+            order = [e["id"] for e in st.session_state.emails]
+        pos = order.index(email["id"])
+        bar = st.container(key="detail_bar").columns([1.3, 5, 0.7, 1.1, 0.7],
+                                                       vertical_alignment="center")
+        bar[0].button("← Inbox", on_click=go_to, args=("Inbox",), width="stretch")
+        bar[1].html(f'<div class="sv-ph-k">[ {PAGE_NO[page]} / 04 ] · email detail</div>')
+        bar[2].button("‹", key="prev_email", disabled=pos == 0, width="stretch",
+                      on_click=go_to, args=("Email detail", order[max(pos - 1, 0)]),
+                      help="Previous email")
+        bar[3].html(f'<div class="sv-pos">{pos + 1} of {len(order)}</div>')
+        bar[4].button("›", key="next_email", disabled=pos == len(order) - 1, width="stretch",
+                      on_click=go_to, args=("Email detail", order[min(pos + 1, len(order) - 1)]),
+                      help="Next email")
         text = f"{email['subject']}\n{email['body']}"
-        result = st.session_state.results.get(email["id"]) or predict(text)
-        result_card(text, result, key=f"detail_{email['id']}")
+        result = (st.session_state.results.get(email["id"])
+                  or classify([email])[email["id"]])
+        email_view.view(text, result, key=f"detail_{email['id']}", subject=email["subject"],
+                        sender=email["sender"], date=email["date"],
+                        body_highlighted=highlight_html(email["body"], result["trigger_words"]))
 
 # ----------------------------------------------------------------------------
 # Quick check
 # ----------------------------------------------------------------------------
 elif page == "Quick check":
-    st.header("Quick check")
-    st.write("Paste an email or drop a `.eml` / `.txt` file to check a single message.")
-    pasted = st.text_area("Email text", height=200, placeholder="Paste the email here...")
-    upload = st.file_uploader("...or upload a file", type=["eml", "txt"])
+    theme.page_header(f"[ {PAGE_NO[page]} / 04 ] · quick check", "CHECK <em>any</em> EMAIL",
+                      "Paste an email or drop a .eml / .txt file to check a single message.")
+    c1, c2 = st.columns([3, 2])
+    pasted = c1.text_area("Email text", height=220, placeholder="Paste the email here...")
+    upload = c2.file_uploader("…or upload a file", type=["eml", "txt"])
+    is_list = c2.checkbox("It's a newsletter / has an unsubscribe link",
+                        help="Mailing-list mail needs a higher score (95%) to count as spam.")
 
     if st.button("Check email", type="primary"):
-        text = ""
+        text, sender, subject, body = "", "", "", ""
         if upload is not None:
             raw = upload.read()
             if upload.name.lower().endswith(".eml"):
                 parsed = parse_eml(raw)
                 text = f"{parsed['subject']}\n{parsed['body']}"
+                subject, body = parsed["subject"], parsed["body"]
+                is_list = is_list or parsed.get("mail_kind") == "list"
+                sender = parsed.get("from", "")   # for the impersonation check only
             else:
                 text = raw.decode("utf-8", errors="replace")
         elif pasted.strip():
@@ -259,95 +351,49 @@ elif page == "Quick check":
         if not text.strip():
             st.warning("Paste some text or upload a file first.")
         else:
-            st.session_state.quick = {"text": text, "result": predict(text)}
+            st.session_state.quick = {"text": text, "result": predict(text, "list" if is_list else None, sender),
+                                      "subject": subject, "sender": sender, "body": body}
 
     q = st.session_state.quick
     if q:
-        st.divider()
-        result_card(q["text"], q["result"], key="quick")
+        theme.kicker("result")
+        email_view.view(q["text"], q["result"], key="quick", subject=q.get("subject", ""),
+                        sender=q.get("sender", ""),
+                        body_highlighted=highlight_html(q.get("body") or q["text"],
+                                                        q["result"]["trigger_words"]))
 
 # ----------------------------------------------------------------------------
 # Insights
 # ----------------------------------------------------------------------------
 else:
-    st.header("Insights")
+    theme.page_header(f"[ {PAGE_NO[page]} / 04 ] · insights", "WHAT THE <em>model</em> SEES")
 
     results = list(st.session_state.results.values())
-    st.subheader("Your scanned emails")
+    theme.kicker("your scanned emails")
     if results:
-        n_spam = sum(r["label"] == "Spam" for r in results)
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Scanned", len(results))
-        m2.metric("Spam", n_spam)
-        m3.metric("Safe", len(results) - n_spam)
-
-        pie = px.pie(names=["Spam", "Safe"], values=[n_spam, len(results) - n_spam],
-                     color=["Spam", "Safe"],
-                     color_discrete_map={"Spam": RED, "Safe": GREEN}, hole=0.5)
-        pie.update_layout(height=280, margin=dict(t=10, b=10))
-        c1, c2 = st.columns(2)
-        c1.plotly_chart(pie, width="stretch")
-
+        counts = Counter(r["label"] for r in results)
+        st.html(theme.tiles(counts, len(results), sum(1 for r in results if r.get("alert"))))
         counter: Counter = Counter()
         for r in results:
-            if r["label"] == "Spam":
+            if r["label"] in ("Spam", "Suspicious"):
                 for term, w in r["spam_terms"]:
                     counter[term] += w
-        if counter:
-            top = pd.DataFrame(counter.most_common(10), columns=["word", "total weight"])
-            bar = px.bar(top[::-1], x="total weight", y="word", orientation="h",
-                         color_discrete_sequence=[RED])
-            bar.update_layout(height=280, margin=dict(t=10, b=10), title="Top spam words")
-            c2.plotly_chart(bar, width="stretch")
-
-        # trend over the scanned emails, newest first as returned by Gmail
-        flags = [int(st.session_state.results[e["id"]]["label"] == "Spam")
-                 for e in st.session_state.emails if e["id"] in st.session_state.results]
-        if len(flags) >= 5:
-            window = min(10, len(flags))
-            trend = pd.Series(flags[::-1]).rolling(window, min_periods=1).mean()
-            line = px.line(y=trend, labels={"x": "oldest to newest", "y": "spam share"},
-                           title=f"Spam share, rolling window of {window} emails")
-            line.update_layout(height=260, yaxis_tickformat=".0%")
-            st.plotly_chart(line, width="stretch")
+        c1, c2 = st.columns(2)
+        c1.html(theme.donut(counts, len(results)))
+        c2.html(theme.bars_panel("top spam words", counter.most_common(8), LABEL_COLORS["Spam"]))
     else:
-        st.caption("Connect Gmail on the Inbox screen to see statistics for your emails.")
+        st.caption("Connect Gmail (or load the sample inbox) on the Inbox screen to see "
+                   "statistics for your emails.")
 
-    st.subheader("Model comparison")
-    metrics_path = MODELS_DIR / "metrics.json"
-    if not metrics_path.exists():
+    m = load_metrics()
+    theme.kicker("model comparison")
+    if not m:
         st.info("Run training to generate the comparison.")
     else:
-        m = json.loads(metrics_path.read_text())
-        res = m["results"]
-        df = pd.DataFrame([
-            {"Model": k, "Accuracy": v["accuracy"], "Precision": v["precision"],
-             "Recall": v["recall"], "F1": v["f1"], "ms / email": v["ms_per_email"]}
-            for k, v in res.items()
-        ]).sort_values("F1", ascending=False)
-        st.dataframe(
-            df.style.format({c: "{:.4f}" for c in ["Accuracy", "Precision", "Recall", "F1"]}
-                            | {"ms / email": "{:.3f}"}),
-            hide_index=True, width="stretch")
-        st.caption(f"App model: **{m['best_model']}** ({m['reason']}). "
-                   f"Targets: precision >= {m['targets']['precision']:.0%}, "
-                   f"F1 >= {m['targets']['f1']:.0%}. "
-                   f"Test set: {m['n_test']} emails.")
-
-        long = df.melt(id_vars="Model", value_vars=["Accuracy", "Precision", "Recall", "F1"],
-                       var_name="Metric", value_name="Score")
-        fig = px.bar(long, x="Model", y="Score", color="Metric", barmode="group")
-        fig.update_layout(height=380, yaxis_range=[0, 1.02])
-        st.plotly_chart(fig, width="stretch")
-
-        st.markdown("**Confusion matrices**")
-        cols = st.columns(min(3, len(res)))
-        for i, (name, v) in enumerate(res.items()):
-            cm = v["confusion"]
-            z = [[cm["tn"], cm["fp"]], [cm["fn"], cm["tp"]]]
-            heat = go.Figure(go.Heatmap(
-                z=z, x=["Pred Safe", "Pred Spam"], y=["Actual Safe", "Actual Spam"],
-                text=z, texttemplate="%{text}", colorscale="Blues", showscale=False))
-            heat.update_layout(title=name, height=260, margin=dict(t=40, b=10),
-                               yaxis_autorange="reversed")
-            cols[i % len(cols)].plotly_chart(heat, width="stretch")
+        st.html('<div class="sv-panel">'
+                + theme.mistakes_chart(m["results"], m["best_model"], m["n_test"], m.get("system")) + "</div>")
+        st.caption(f"App model: {m['best_model']} ({m['reason']}). "
+                   f"Targets: precision ≥ {m['targets']['precision']:.0%}, "
+                   f"F1 ≥ {m['targets']['f1']:.0%}. Test set: {m['n_test']:,} emails.")
+        theme.kicker("confusion matrices · test set")
+        st.html(theme.confusion_grid(m["results"]))

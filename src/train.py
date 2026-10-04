@@ -35,18 +35,21 @@ from sklearn.preprocessing import MaxAbsScaler
 from sklearn.svm import LinearSVC
 
 from .data import load_dataset
-from .preprocess import LEMMATIZER_NAME, build_vectorizer, clean_text
+from .preprocess import (LEMMATIZER_NAME, build_char_vectorizer, build_vectorizer,
+                         char_text, clean_text)
 from .rules import FEATURE_NAMES, rule_features
 
 ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = ROOT / "models"
 MODERN_EXAMPLES_PATH = ROOT / "data" / "modern_examples.csv"
+GMAIL_EXAMPLES_PATH = ROOT / "data" / "gmail_examples.csv"  # from src.gmail_dataset
 SEED = 42
 TARGET_PRECISION = 0.97
 TARGET_F1 = 0.95
 
 FEEDBACK_WEIGHT = 20
 MODERN_WEIGHT = 10
+GMAIL_WEIGHT = 3
 
 # Models that can run live in the app. DistilBERT/LSTM is comparison only.
 APP_CANDIDATES = ["Logistic Regression", "Linear SVM", "Multinomial Naive Bayes",
@@ -127,11 +130,17 @@ def main(data_path: str, text_col: str | None = None, label_col: str | None = No
     print(f"Loading {data_path} ...")
     df = load_dataset(data_path, text_col, label_col)
 
-    modern_df = None
-    if MODERN_EXAMPLES_PATH.exists():
-        modern_df = load_dataset(MODERN_EXAMPLES_PATH)
-        print(f"  Loaded {len(modern_df)} modern examples from {MODERN_EXAMPLES_PATH.name}")
-        df = df[~df["text"].isin(set(modern_df["text"]))].reset_index(drop=True)
+    # Extra training-only sources: never in the test set, so the reported scores
+    # stay comparable to the public dataset.
+    extras = []  # (DataFrame, weight)
+    for path, weight in [(MODERN_EXAMPLES_PATH, MODERN_WEIGHT),
+                         (GMAIL_EXAMPLES_PATH, GMAIL_WEIGHT)]:
+        if path.exists():
+            extra = load_dataset(path)
+            print(f"  Loaded {len(extra)} extra examples from {path.name} "
+                  f"({extra['label'].mean():.0%} spam, weight {weight})")
+            df = df[~df["text"].isin(set(extra["text"]))].reset_index(drop=True)
+            extras.append((extra, weight))
 
     n_feedback = len(feedback_rows) if feedback_rows else 0
     if feedback_rows:
@@ -146,18 +155,18 @@ def main(data_path: str, text_col: str | None = None, label_col: str | None = No
         df["text"], df["label"], test_size=test_size,
         stratify=df["label"], random_state=SEED)
 
-    n_dataset_train = len(train_raw)
-    n_modern = len(modern_df) if modern_df is not None else 0
-
-    if modern_df is not None and not modern_df.empty:
-        train_raw = pd.concat([train_raw, modern_df["text"]], ignore_index=True)
-        y_train = pd.concat([y_train, modern_df["label"].astype(y_train.dtype)], ignore_index=True)
+    weights = [np.ones(len(train_raw))]
+    for extra, weight in extras:
+        train_raw = pd.concat([train_raw, extra["text"]], ignore_index=True)
+        y_train = pd.concat([y_train, extra["label"].astype(y_train.dtype)], ignore_index=True)
+        weights.append(np.full(len(extra), float(weight)))
 
     if feedback_rows:
         fb_texts = [t for t, _ in feedback_rows]
         fb_labels = [int(l) for _, l in feedback_rows]
         train_raw = pd.concat([train_raw, pd.Series(fb_texts)], ignore_index=True)
         y_train = pd.concat([y_train, pd.Series(fb_labels, dtype=y_train.dtype)], ignore_index=True)
+        weights.append(np.full(len(fb_texts), float(FEEDBACK_WEIGHT)))
 
     print("Cleaning text ...")
     train_clean = train_raw.map(clean_text)
@@ -168,20 +177,20 @@ def main(data_path: str, text_col: str | None = None, label_col: str | None = No
         print(f"  Rule features not usable on this dataset, switched off in the model: "
               f"{', '.join(disabled)} (the warnings in the app still use them)")
 
+    # Features: word TF-IDF | character n-gram TF-IDF | rule features.
+    # Word features come first so explanations can stay at word level.
     vec = build_vectorizer()
+    char_vec = build_char_vectorizer()
     scaler = MaxAbsScaler()
+    print("Building features (words + character n-grams) ...")
     Xtr = hstack([vec.fit_transform(train_clean),
+                  char_vec.fit_transform(train_raw.map(char_text)),
                   csr_matrix(scaler.fit_transform(rule_matrix(train_raw, disabled)))]).tocsr()
     Xte = hstack([vec.transform(test_clean),
+                  char_vec.transform(test_raw.map(char_text)),
                   csr_matrix(scaler.transform(rule_matrix(test_raw, disabled)))]).tocsr()
 
-    sample_weight = np.ones(len(train_raw), dtype=float)
-    idx = n_dataset_train
-    if n_modern:
-        sample_weight[idx:idx + n_modern] = MODERN_WEIGHT
-        idx += n_modern
-    if feedback_rows:
-        sample_weight[idx:] = FEEDBACK_WEIGHT
+    sample_weight = np.concatenate(weights)
 
     results: dict[str, dict] = {}
     fitted: dict[str, object] = {}
@@ -198,14 +207,27 @@ def main(data_path: str, text_col: str | None = None, label_col: str | None = No
     dl_path = MODELS_DIR / "dl_results.json"
     if dl_path.exists():
         dl = json.loads(dl_path.read_text())
-        results[dl.get("name", "DistilBERT")] = {**dl["metrics"], "note": "trained on Colab"}
+        results[dl.get("name", "DistilBERT")] = {**dl["metrics"],
+                                            "runtime": dl.get("runtime", "")}
         print(f"Merged deep learning results from {dl_path.name}")
+
+    # The full app system (main model + DistilBERT second opinion), scored by
+    # src/eval_second_opinion.py. Shown for comparison; never picked as the base model.
+    system_name = None
+    sys_path = MODELS_DIR / "system_results.json"
+    if sys_path.exists():
+        sysr = json.loads(sys_path.read_text())
+        system_name = sysr["name"]
+        results[system_name] = sysr["metrics"]
+        print(f"Merged app-system results from {sys_path.name} (re-run "
+              f"src.eval_second_opinion after retraining to refresh it)")
 
     best_name, reason = choose_best(results)
     print(f"\nApp model: {best_name} ({reason})")
 
     bundle = {
         "vectorizer": vec,
+        "char_vectorizer": char_vec,
         "scaler": scaler,
         "model": fitted[best_name],
         "model_name": best_name,
@@ -224,7 +246,7 @@ def main(data_path: str, text_col: str | None = None, label_col: str | None = No
     ]).sort_values("f1", ascending=False)
     table.to_csv(MODELS_DIR / "model_comparison.csv", index=False)
     (MODELS_DIR / "metrics.json").write_text(json.dumps(
-        {"results": results, "best_model": best_name, "reason": reason,
+        {"results": results, "best_model": best_name, "reason": reason, "system": system_name,
          "targets": {"precision": TARGET_PRECISION, "f1": TARGET_F1},
          "n_train": int(len(train_raw)), "n_test": int(len(test_raw)),
          "n_feedback": int(n_feedback)}, indent=2))
