@@ -29,11 +29,11 @@ _ENTITY_WORDS = {"nbsp", "amp", "quot", "zwnj", "zwj", "lt", "gt", "rsquo", "lsq
 CSS = """
 .sv-ev-subject { font-family: var(--sv-display); font-weight: 500; font-size: clamp(26px, 2.6vw, 36px);
   line-height: 1.12; letter-spacing: -.01em; margin: 4px 0 18px; color: var(--sv-ink); }
-.sv-ev-from { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 18px;
-  background: rgba(246,246,247,.8); box-shadow: inset 0 0 0 1px var(--sv-line); }
+.sv-ev-from { display: flex; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 6px;
+  background: var(--sv-panel); box-shadow: inset 0 0 0 1px var(--sv-line); }
 .sv-ev-av { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
   font-family: var(--sv-display); font-size: 19px; font-weight: 600; color: var(--c);
-  background: color-mix(in srgb, var(--c) 16%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent); }
+  background: color-mix(in srgb, var(--c) 16%, var(--sv-panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent); }
 .sv-ev-who { min-width: 0; flex: 1; }
 .sv-ev-name { font-weight: 600; font-size: 15px; color: var(--sv-ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -42,25 +42,25 @@ CSS = """
 .sv-ev-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 6px; }
 .sv-ev-meta .sv-chip { margin-top: 0; }
 .sv-ev-date { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-2); white-space: nowrap; }
-.sv-chip { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 9px; border-radius: 999px;
+.sv-chip { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 9px; border-radius: 3px;
   font-family: var(--sv-mono); font-size: 10.5px; font-weight: 500; }
 .sv-chip.ok { color: var(--sv-safe); background: color-mix(in srgb, var(--sv-safe) 12%, transparent); }
 .sv-chip.bad { color: var(--sv-spam); background: color-mix(in srgb, var(--sv-spam) 12%, transparent); }
-.sv-chip.none { color: var(--sv-ink-3); background: rgba(20,20,22,.05); }
-.sv-ev-alert { display: flex; gap: 14px; align-items: flex-start; margin-top: 14px; padding: 14px 16px; border-radius: 16px;
-  background: color-mix(in srgb, var(--sv-alert) 9%, #fff);
+.sv-chip.none { color: var(--sv-ink-3); background: rgba(255,176,0,.07); }
+.sv-ev-alert { display: flex; gap: 14px; align-items: flex-start; margin-top: 14px; padding: 14px 16px; border-radius: 6px;
+  background: color-mix(in srgb, var(--sv-alert) 9%, var(--sv-panel));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sv-alert) 30%, transparent); font-size: 13.5px; line-height: 1.5; }
 .sv-ev-alert b { color: var(--sv-alert); display: block; margin-bottom: 2px; }
-.sv-ev-body { margin-top: 14px; padding: 26px 30px; border-radius: 20px; background: #FBFBFB;
-  box-shadow: inset 0 0 0 1px var(--sv-line), 0 30px 60px -48px rgba(20,20,22,.6);
-  font-size: 15px; line-height: 1.75; color: #2A2A2E; max-height: 640px; overflow: auto; overflow-wrap: anywhere; }
+.sv-ev-body { margin-top: 14px; padding: 26px 30px; border-radius: 6px; background: var(--sv-panel-2);
+  box-shadow: inset 0 0 0 1px var(--sv-line), 0 30px 60px -48px rgba(0,0,0,.7);
+  font-size: 15px; line-height: 1.75; color: var(--sv-ink); max-height: 640px; overflow: auto; overflow-wrap: anywhere; }
 .sv-ev-body mark { background: color-mix(in srgb, var(--sv-spam) 18%, transparent); color: var(--sv-ink);
   padding: 1px 3px; border-radius: 4px; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--sv-spam) 55%, transparent); }
 .sv-link { font-family: var(--sv-mono); font-size: 12px; padding: 1px 6px; border-radius: 6px; white-space: nowrap;
-  background: rgba(20,20,22,.05); color: var(--sv-ink-2); }
+  background: rgba(255,176,0,.07); color: var(--sv-ink-2); }
 .sv-link.risky { background: color-mix(in srgb, var(--sv-spam) 12%, transparent); color: var(--sv-spam); }
 .sv-img { display: inline-block; font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3);
-  padding: 2px 8px; border-radius: 6px; border: 1px dashed rgba(20,20,22,.18); }
+  padding: 2px 8px; border-radius: 6px; border: 1px dashed var(--sv-line-2); }
 .sv-ev-legend { font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3); margin-top: 10px; }
 
 /* layout: two columns that wrap when the window is narrow */
@@ -77,8 +77,8 @@ CSS = """
 
 /* verdict panel */
 [data-testid="stColumn"]:has(.sv-verdict) { position: sticky; top: 16px; align-self: flex-start; }
-.sv-verdict { padding: 22px; border-radius: 22px; background: #F7F7F8;
-  box-shadow: inset 0 0 0 1px var(--sv-line), 0 30px 60px -44px rgba(20,20,22,.55); }
+.sv-verdict { padding: 22px; border-radius: 6px; background: var(--sv-panel-2);
+  box-shadow: inset 0 0 0 1px var(--sv-line), 0 30px 60px -44px rgba(0,0,0,.7); }
 .sv-v-top { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .sv-v-say { font-family: var(--sv-display); font-size: 20px; font-weight: 500; line-height: 1.25; margin: 14px 0 4px; color: var(--sv-ink); }
 .sv-v-sub { font-size: 12.5px; color: var(--sv-ink-2); line-height: 1.5; }
@@ -89,18 +89,18 @@ CSS = """
 .sv-trace li { position: relative; padding: 0 0 12px 28px; margin: 0; }
 .sv-trace li:last-child { padding-bottom: 0; }
 .sv-trace .d { position: absolute; left: 2px; top: 3px; width: 13px; height: 13px; border-radius: 50%;
-  background: #fff; box-shadow: inset 0 0 0 3px var(--s); }
+  background: var(--sv-panel-2); box-shadow: inset 0 0 0 3px var(--s); }
 .sv-trace li.final .d { background: var(--s); box-shadow: 0 0 0 3px color-mix(in srgb, var(--s) 25%, transparent); }
 .sv-trace .t { font-size: 13px; font-weight: 600; color: var(--sv-ink); }
 .sv-trace .x { font-size: 12px; color: var(--sv-ink-2); line-height: 1.45; margin-top: 2px; }
 .sv-mini { display: grid; grid-template-columns: 1fr 44px; gap: 8px; align-items: center; margin-top: 6px; }
 .sv-mini .tr { position: relative; height: 6px; border-radius: 6px; overflow: hidden;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--sv-safe) 25%, #E7E7E9) 0 60%,
-    color-mix(in srgb, var(--sv-suspicious) 32%, #E7E7E9) 60% 85%, color-mix(in srgb, var(--sv-spam) 36%, #E7E7E9) 85%); }
-.sv-mini .tr i { position: absolute; top: -2px; bottom: -2px; width: 3px; border-radius: 2px; background: var(--sv-ink); }
+  background: linear-gradient(90deg, color-mix(in srgb, var(--sv-safe) 25%, var(--sv-panel-2)) 0 60%,
+    color-mix(in srgb, var(--sv-suspicious) 32%, var(--sv-panel-2)) 60% 85%, color-mix(in srgb, var(--sv-spam) 36%, var(--sv-panel-2)) 85%); }
+.sv-mini .tr i { position: absolute; top: -2px; bottom: -2px; width: 3px; border-radius: 2px; background: var(--sv-glow); }
 .sv-mini b { font-family: var(--sv-mono); font-size: 11.5px; font-weight: 500; text-align: right; }
 .sv-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.sv-tag { font-size: 12px; padding: 5px 10px; border-radius: 10px; line-height: 1.35;
+.sv-tag { font-size: 12px; padding: 5px 10px; border-radius: 4px; line-height: 1.35;
   background: color-mix(in srgb, var(--sv-suspicious) 11%, transparent); }
 .sv-tag.ok { background: color-mix(in srgb, var(--sv-safe) 11%, transparent); }
 .sv-dom { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 7px 0;
@@ -110,7 +110,7 @@ CSS = """
 .sv-dom.risky span:last-child { color: var(--sv-spam); }
 .sv-words { display: flex; flex-wrap: wrap; gap: 6px; }
 .sv-word { font-family: var(--sv-mono); font-size: 11.5px; padding: 4px 9px; border-radius: 8px; color: var(--sv-ink);
-  background: color-mix(in srgb, var(--c) calc(var(--w) * 1%), #EFEFF1); }
+  background: color-mix(in srgb, var(--c) calc(var(--w) * 1%), var(--sv-panel)); }
 .sv-pos { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-2); text-align: center; }
 @media (max-width: 900px) {
   [data-testid="stColumn"]:has(.sv-verdict) { position: static; }
@@ -192,10 +192,10 @@ def _trace(r: dict, has_sender: bool) -> str:
     elif r.get("impersonation"):
         steps.append((c("Spam"), "Sender doesn't match its name", escape(r["impersonation"]) + "."))
     elif has_sender:
-        steps.append(("#9A9AA2", "Sender not verified as a trusted service",
+        steps.append(("var(--sv-ink-3)", "Sender not verified as a trusted service",
                       "Normal for people and smaller senders; the text decides."))
     else:
-        steps.append(("#9A9AA2", "No sender information", "Pasted text: only the words can be checked."))
+        steps.append(("var(--sv-ink-3)", "No sender information", "Pasted text: only the words can be checked."))
     # 2 mail type
     kind = r.get("mail_kind")
     if kind == "promotions":
@@ -207,17 +207,17 @@ def _trace(r: dict, has_sender: bool) -> str:
         steps.append((c("Update"), "Mailing list / automated mail",
                       f"Needs 95% to count as spam. {extra}"))
     else:
-        steps.append(("#9A9AA2", "Personal or one-to-one mail", "Spam from 85%, Suspicious from 60%."))
+        steps.append(("var(--sv-ink-3)", "Personal or one-to-one mail", "Spam from 85%, Suspicious from 60%."))
     # 3 text model
     so = r.get("second_opinion")
     first = so["first"] if so else r["spam_prob"]
-    steps.append(("#4A4A50", f"Text model · {escape(r['model_name'])}",
+    steps.append(("var(--sv-ink-3)", f"Text model · {escape(r['model_name'])}",
                   f'<div class="sv-mini"><span class="tr"><i style="left:calc({first * 100:.1f}% - 1px)"></i></span>'
                   f'<b>{first:.0%}</b></div>'))
     # 4 second opinion
     if so:
         lo, hi = SECOND_OPINION_BAND
-        steps.append(("#4A4A50", "Second opinion · DistilBERT",
+        steps.append(("var(--sv-ink-3)", "Second opinion · DistilBERT",
                       f"Text model was unsure ({lo:.0%}–{hi:.0%}), so DistilBERT read it too: "
                       f"{so['distilbert']:.0%}. Average <b>{so['combined']:.0%}</b>."))
     # 5 final rule

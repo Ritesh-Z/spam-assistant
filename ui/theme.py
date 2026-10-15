@@ -1,9 +1,12 @@
 """Visual theme: colour tokens, global CSS and small HTML building blocks.
 
-Look: soft grey gradient background, a framed light "glass" card, editorial
-display type (Exo 2), mono labels (JetBrains Mono), and a warm amber glow as
-the brand accent. The five labels each get a distinct colour, used everywhere
-(badges, meters, charts, the 3D scenes) so a label reads the same at a glance.
+Look: light cassette futurism. Cream panels in a beige plastic case, a
+green LCD for readouts, a dark CRT window for the 3D scene, terminal type (VT323 / Share Tech Mono / IBM Plex
+Mono) and an Orbitron wordmark. Faint scanlines can be switched off.
+The five labels use classic phosphor colours, distinct from the amber UI,
+and the same colour everywhere (badges, charts, the 3D scenes).
+Responsive: fluid sizes (clamp), auto-fitting grids, breakpoints at
+1100 / 760 / 480 px.
 """
 from __future__ import annotations
 
@@ -12,298 +15,337 @@ from html import escape
 
 import streamlit as st
 
+from . import brand
+
 LABEL_COLORS = {
-    "Spam": "#E03E3E",        # ember red
-    "Suspicious": "#EE8A1A",  # orange: between red and safe on the severity scale
-    "Promotion": "#7A5AF8",   # violet: marketing you signed up for
-    "Update": "#2F80ED",      # blue: account notices, terms changes, product news
-    "Safe": "#11A683",        # teal green: everything else
+    "Spam": "#D7263D",        # signal red
+    "Suspicious": "#B98600",  # dark yellow (readable on cream)
+    "Promotion": "#B8329B",   # magenta: marketing you signed up for
+    "Update": "#1B7FB0",      # cyan-blue: notices, terms changes, product news
+    "Safe": "#1E9E5A",        # green: everything else
 }
 LABELS = list(LABEL_COLORS)
-INK, INK_2, INK_3 = "#141416", "#4A4A50", "#8A8A92"
-GLOW, GLOW_2 = "#FFB347", "#FF8A1F"
-ALERT = "#D9480F"             # the alert flag: deep orange-red, distinct from Spam red
-FONT_BODY, FONT_DISPLAY, FONT_MONO = "Inter", "Exo 2", "JetBrains Mono"
+INK, INK_2, INK_3 = "#121B24", "#435161", "#7B8896"     # deep slate ink on light glass
+GLOW, GLOW_2 = "#F08A00", "#C26C00"                     # amber: the brand colour
+ALERT = "#E08A00"             # the alert flag: an amber warning lamp
+FONT_BODY, FONT_DISPLAY, FONT_MONO, FONT_LOGO = "Space Grotesk", "Chakra Petch", "JetBrains Mono", "Orbitron"
 
-_FONTS = ("https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;"
-          "1,300;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap")
+_FONTS = ("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700"
+          "&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500"
+          "&family=Orbitron:wght@500;700;900&display=swap")
+
+TOKENS = """
+:root {
+  --sv-bg: #E6EBF0; --sv-screen: rgba(255,255,255,.82); --sv-panel: #FFFFFF; --sv-panel-2: #EEF2F6;
+  --sv-line: rgba(18,27,36,.10); --sv-line-2: rgba(18,27,36,.20); 
+  --sv-ink: %(ink)s; --sv-ink-2: %(ink2)s; --sv-ink-3: %(ink3)s;
+  --sv-glow: %(glow)s; --sv-glow-2: %(glow2)s; --sv-amber-dim: #E9C27E; --sv-on-accent: #241E16;
+  --sv-bezel: #DCE3EA; --sv-bezel-2: #B6C1CC; --sv-bezel-ink: #3E4B58;
+  --sv-lcd: #1E1B17; --sv-lcd-ink: #FFC266; --sv-lcd-bg: #1E1B17;
+  --sv-lcd-face: linear-gradient(160deg, #2B2621, #15120F);
+  --sv-crt: #0E0B07;
+  --sv-spam: %(spam)s; --sv-suspicious: %(susp)s; --sv-promotion: %(promo)s;
+  --sv-update: %(upd)s; --sv-safe: %(safe)s; --sv-alert: %(alert)s;
+  --sv-body: '%(fb)s', ui-monospace, monospace;
+  --sv-display: '%(fd)s', '%(fm)s', monospace;
+  --sv-mono: '%(fm)s', ui-monospace, monospace;
+  --sv-logo: '%(fl)s', '%(fm)s', sans-serif;
+  --sv-card: var(--sv-panel); --sv-card-2: var(--sv-panel-2);
+}
+"""
 
 _CSS = """
 @import url('%(fonts)s');
-:root {
-  --sv-ink: %(ink)s; --sv-ink-2: %(ink2)s; --sv-ink-3: %(ink3)s;
-  --sv-line: rgba(20,20,22,.09);
-  --sv-card: #E9E9EB; --sv-card-2: #F4F4F5;
-  --sv-glow: %(glow)s; --sv-glow-2: %(glow2)s;
-  --sv-spam: %(spam)s; --sv-suspicious: %(susp)s; --sv-promotion: %(promo)s;
-  --sv-update: %(upd)s; --sv-safe: %(safe)s; --sv-alert: %(alert)s;
-  --sv-body: '%(fb)s', system-ui, sans-serif;
-  --sv-display: '%(fd)s', '%(fb)s', sans-serif;
-  --sv-mono: '%(fm)s', ui-monospace, monospace;
-}
-
-/* ---- canvas: the grey gradient from the reference ---------------------- */
+""" + TOKENS + """
+/* ---- canvas: beige plastic ---------------------------------------------- */
 .stApp {
   background:
-    radial-gradient(70%% 50%% at 15%% 0%%, rgba(255,255,255,.55), transparent 70%%),
-    linear-gradient(160deg, #E3E3E5 0%%, #BDBDC1 48%%, #8E8E93 100%%) fixed;
+    linear-gradient(rgba(18,27,36,.045) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgba(18,27,36,.045) 1px, transparent 1px) 0 0 / 32px 32px,
+    radial-gradient(120%% 80%% at 50%% 0%%, #F5F8FB 0%%, var(--sv-bg) 70%%) fixed;
   color: var(--sv-ink);
 }
-.stApp, .stApp p, .stApp li, .stApp label, .stApp input, .stApp textarea, .stApp button {
-  font-family: var(--sv-body);
-}
+.stApp, .stApp p, .stApp li, .stApp label, .stApp input, .stApp textarea, .stApp button { font-family: var(--sv-body); }
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stToolbar"] { right: 1rem; }
 [data-testid="stDecoration"] { display: none; }
+::selection { background: var(--sv-glow); color: var(--sv-on-accent); }
 
-/* ---- main card --------------------------------------------------------- */
+/* ---- main area: the beige case; each block below is its own panel -------- */
+[data-testid="stHeader"] { display: none; }
+[data-testid="stToolbar"], [data-testid="stHeader"] [data-testid="stToolbarActions"], [data-testid="stMainMenu"] { display: none; }
 [data-testid="stMainBlockContainer"] {
-  max-width: 1240px; margin: 40px auto 90px; padding: 44px 52px 52px;
-  background: radial-gradient(120%% 80%% at 70%% 0%%, #F3F3F4 0%%, var(--sv-card) 60%%);
-  border-radius: 26px;
-  box-shadow: 0 0 0 10px rgba(255,255,255,.30), inset 0 0 0 1px rgba(20,20,22,.05),
-              0 50px 90px -50px rgba(20,20,22,.55);
-  position: relative;
+  max-width: 1600px; margin: 0 auto; padding: 10px clamp(8px, 1.4vw, 20px) 10px;
+  background: transparent;
 }
-[data-testid="stMainBlockContainer"]::after {     /* warm light under the card */
-  content: ""; position: absolute; left: 14%%; right: 14%%; bottom: -80px; height: 110px; z-index: -1;
-  background: radial-gradient(50%% 50%% at 50%% 30%%, rgba(255,178,70,.6), rgba(255,140,40,.18) 55%%, transparent 75%%);
-  filter: blur(26px); pointer-events: none;
+
+/* ---- optional CRT effects: faint scanlines over the whole page ---------- */
+.sv-fx .stApp::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 999990; opacity: .5;
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(43,38,32,.045) 2px 3px);
 }
-.sv-home [data-testid="stMainBlockContainer"] {
-  background: transparent; box-shadow: none; padding: 24px 28px 40px; margin-top: 8px; max-width: 1320px;
-}
-.sv-home [data-testid="stMainBlockContainer"]::after { display: none; }
 
 /* ---- type -------------------------------------------------------------- */
-.stApp h1, .stApp h2, .stApp h3 {
-  font-family: var(--sv-display); font-weight: 500; letter-spacing: -.01em; color: var(--sv-ink);
-}
-.stApp code { font-family: var(--sv-mono); }
+.stApp h1, .stApp h2, .stApp h3 { font-family: var(--sv-display); font-weight: 700; color: var(--sv-ink); }
+.stApp code { font-family: var(--sv-mono); color: var(--sv-glow-2); background: var(--sv-panel-2); }
 [data-testid="stCaptionContainer"], .stApp small { color: var(--sv-ink-3); }
+.stApp a { color: var(--sv-glow-2); }
+.sv-ph { margin: 0 0 10px; }
+.sv-ph-k { font-family: var(--sv-mono); font-size: 12px; color: var(--sv-ink-3); letter-spacing: .08em; text-transform: uppercase; }
+.sv-ph-k::before { content: "> "; color: var(--sv-glow); }
+.sv-ph-t { font-family: var(--sv-display); font-weight: 700; text-transform: uppercase; color: var(--sv-ink);
+  font-size: clamp(22px, 2.2vw, 30px); line-height: 1; letter-spacing: .02em; margin: 4px 0 4px; }
+.sv-ph-t em { font-style: normal; color: var(--sv-glow); }
+.sv-ph-s { color: var(--sv-ink-2); font-size: 13px; max-width: 640px; margin: 0; line-height: 1.45; }
+.sv-kick { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-3); text-transform: uppercase;
+  letter-spacing: .1em; margin: 10px 0 6px; }
+.sv-kick::before { content: "// "; color: var(--sv-glow); }
 
-.sv-ph { margin: 0 0 26px; }
-.sv-ph-k { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-2); letter-spacing: .02em; }
-.sv-ph-t { font-family: var(--sv-display); font-weight: 500; text-transform: uppercase;
-  font-size: clamp(30px, 3.6vw, 46px); line-height: 1; margin: 14px 0 10px; letter-spacing: -.01em; }
-.sv-ph-t em { font-style: italic; font-weight: 300; text-transform: none; }
-.sv-ph-s { color: var(--sv-ink-2); font-size: 14px; max-width: 640px; margin: 0; }
-.sv-kick { font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3);
-  text-transform: uppercase; letter-spacing: .08em; margin: 18px 0 10px; }
+/* ---- no Streamlit sidebar: the menu sits in each page's left card --------- */
+[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"],
+[data-testid="stExpandSidebarButton"] { display: none !important; }
+.st-key-panel_side [data-testid="stExpander"] { margin-top: auto; }
+.st-key-panel_side [data-testid="stExpander"] details { border-radius: 8px; border-color: var(--sv-line-2); background: var(--sv-panel); }
+.st-key-panel_side [data-testid="stExpander"] summary p { font-family: var(--sv-mono); font-size: 12px; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--sv-ink-2); }
 
-/* ---- sidebar ----------------------------------------------------------- */
-[data-testid="stSidebar"] {
-  background: rgba(238,238,240,.62); backdrop-filter: blur(18px);
-  border-right: 1px solid rgba(255,255,255,.5);
+/* ---- top bar: the retro device header (same as the landing page) ------------ */
+.st-key-topbar {
+  padding: 8px clamp(10px, 1.6vw, 18px); border-radius: 10px;
+  background: linear-gradient(180deg, #EEE8DB, #D8CFBF); box-shadow: inset 0 1px 0 rgba(255,255,255,.8),
+    inset 0 -2px 0 rgba(0,0,0,.12), 0 10px 24px -18px rgba(60,48,30,.6);
 }
-[data-testid="stSidebar"] [data-testid="stSidebarContent"] { padding-top: 6px; }
-.sv-brand { font-family: var(--sv-mono); font-size: 20px; font-weight: 500; color: var(--sv-ink); }
-.sv-brand-v { font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-2); margin: 8px 0 18px; }
-[data-testid="stSidebar"] [data-testid="stRadio"] > label { display: none; }
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] { gap: 2px; }
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] > label {
-  padding: 8px 12px; border-radius: 12px; margin: 0; transition: background .2s;
+.sv-tb { display: flex; align-items: center; gap: clamp(10px, 1.6vw, 18px); min-width: 0; }
+.sv-tb-lcd {
+  display: flex; align-items: center; gap: 9px; flex: none; padding: 7px clamp(10px, 1.4vw, 16px); border-radius: 6px;
+  color: #1C2612; font-family: var(--sv-logo); font-weight: 900; letter-spacing: .1em;
+  font-size: clamp(20px, 2.2vw, 28px); line-height: 1; cursor: default;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px), linear-gradient(180deg, #8EA56C, #6E8452);
+  box-shadow: inset 0 0 0 3px #1B1B1B, inset 0 0 18px rgba(0,0,0,.35);
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] > label:hover { background: rgba(255,255,255,.6); }
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) {
-  background: #FAFAFA; box-shadow: 0 10px 24px -18px rgba(20,20,22,.6);
+.sv-tb-lcd svg { width: 1em; height: 1em; }
+.st-key-topbar .st-key-nav_logo button {
+  min-height: 46px; padding: 0 12px; border-radius: 6px !important; color: #1C2612 !important;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px), linear-gradient(180deg, #8EA56C, #6E8452) !important;
+  box-shadow: inset 0 0 0 3px #1B1B1B, inset 0 0 18px rgba(0,0,0,.35) !important; }
+.st-key-topbar .st-key-nav_logo button p { font-family: var(--sv-logo) !important; font-weight: 900; font-size: clamp(20px, 2.2vw, 30px) !important;
+  letter-spacing: .1em; line-height: 1; color: #1C2612 !important; }
+.st-key-topbar .st-key-nav_logo button:hover { filter: brightness(1.06); }
+.st-key-topbar .st-key-nav_logo button:active { transform: translateY(1px); }
+.sv-tb-own { display: grid; gap: 1px; min-width: 0; font-family: var(--sv-mono); font-size: 11px; letter-spacing: .06em;
+  color: #4A443A; }
+.sv-tb-own > span:first-child { text-transform: uppercase; font-size: 10px; letter-spacing: .14em; }
+.sv-tb-own b { font-family: var(--sv-logo); font-weight: 700; font-size: clamp(13px, 1.4vw, 17px); letter-spacing: .1em;
+  color: #2B2620; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sv-tb-own > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* page keys: dark hardware keys, the current page lit amber */
+.st-key-topkeys button { min-width: 70px; height: 34px; min-height: 34px !important; padding: 0 12px !important; }
+.st-key-topbar button {
+  min-height: 34px; border-radius: 6px !important; border: 0 !important; color: #D9D1BF !important;
+  background: linear-gradient(180deg, #3A3A3A, #171717) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 3px 0 #000; transition: transform .08s, box-shadow .08s, color .15s;
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] > label > div:first-child { display: none; }
-[data-testid="stSidebar"] [data-testid="stRadio"] p { font-size: 13.5px; }
-.sv-home [data-testid="stSidebar"], .sv-home [data-testid="stSidebarCollapsedControl"],
-.sv-home [data-testid="stExpandSidebarButton"] { display: none; }
+.st-key-topbar button p { font-size: 12px !important; letter-spacing: .12em; color: inherit !important; }
+.st-key-topbar button:hover { color: #FFD38A !important; }
+.st-key-topbar button:active { transform: translateY(3px); box-shadow: 0 0 0 #000; }
+.st-key-topbar [data-testid="stBaseButton-primary"] { color: #241E16 !important;
+  background: linear-gradient(180deg, #F0A12A, #D98200) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 3px 0 #8A5200; }
+.st-key-topbar [data-testid="stBaseButton-primary"]:hover { color: #241E16 !important; filter: brightness(1.06); }
+.st-key-topbar [data-testid="stHorizontalBlock"] { gap: 8px; }
+[data-testid="stPopoverBody"] { background: var(--sv-panel); border: 1px solid var(--sv-line-2); min-width: 280px; }
 
-/* ---- buttons ----------------------------------------------------------- */
-.stApp [data-testid^="stBaseButton"] {
-  border-radius: 999px; font-family: var(--sv-mono); font-size: 11.5px; letter-spacing: .04em;
-  transition: background .2s, color .2s, box-shadow .25s, border-color .2s;
+/* ---- panels: the page is a set of screens, like the landing --------------- */
+[class*="st-key-panel"] {
+  --hc: var(--sv-glow);
+  padding: clamp(10px, 1.2vw, 16px); border-radius: 12px; backdrop-filter: blur(6px);
+  background:
+    linear-gradient(var(--hc), var(--hc)) left top / 14px 2px no-repeat,
+    linear-gradient(var(--hc), var(--hc)) left top / 2px 14px no-repeat,
+    linear-gradient(var(--hc), var(--hc)) right bottom / 14px 2px no-repeat,
+    linear-gradient(var(--hc), var(--hc)) right bottom / 2px 14px no-repeat,
+    var(--sv-screen);
+  box-shadow: inset 0 0 0 1px var(--sv-line), 0 18px 34px -28px rgba(18,27,36,.55);
 }
-.stApp [data-testid="stBaseButton-secondary"] {
-  background: transparent; border: 1px solid rgba(20,20,22,.28); color: var(--sv-ink);
+.st-key-panel_list { padding: 0; background: transparent; box-shadow: none; }
+/* style-only st.html blocks take no room (their CSS still applies) */
+[data-testid="stElementContainer"]:has(> [data-testid="stHtml"] > style) { display: none; }
+/* ---- one screen: on a desktop window every page fits; panels scroll inside -- */
+@media (min-width: 900px) and (min-height: 600px) {
+  :root { --sv-h: calc(100dvh - 118px); }
+  [data-testid="stElementContainer"]:has(.sv-plate) { display: none; }
+  .st-key-panel_side, .st-key-panel_body, .st-key-panel_page_detail {
+    flex: none !important; height: var(--sv-h) !important; max-height: var(--sv-h); overflow-y: auto; flex-wrap: nowrap;
+    scrollbar-width: thin; }
+  .st-key-panel_main { flex: none !important; height: var(--sv-h) !important; max-height: var(--sv-h); overflow: hidden;
+    flex-wrap: nowrap; }
+  .st-key-panel_list { flex: 1 1 auto; min-height: 0; max-height: calc(var(--sv-h) - clamp(140px, 19vh, 180px) - 52px);
+    overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+  .st-key-panel_model_body { flex: none !important; height: calc(var(--sv-h) - 196px); min-height: 280px; overflow-y: auto; scrollbar-width: thin; }
 }
-.stApp [data-testid="stBaseButton-secondary"]:hover {
-  background: var(--sv-ink); border-color: var(--sv-ink); color: #F4F4F5;
-  box-shadow: 0 10px 26px -12px rgba(255,160,50,.9);
+/* inbox rail: filters as one vertical list */
+.st-key-panel_side [data-testid="stButtonGroup"], .st-key-panel_side [data-testid="stButtonGroup"] > div { width: 100%% !important; max-width: none !important; }
+.st-key-panel_side [data-testid="stElementContainer"]:has([data-testid="stButtonGroup"]) { width: 100%% !important; }
+.st-key-panel_side [data-testid="stButtonGroup"] > div { flex-direction: column; flex-wrap: nowrap !important; align-items: stretch; gap: 4px; }
+.st-key-panel_side [data-testid="stButtonGroup"] button { width: 100%%; justify-content: flex-start; border-radius: 8px !important;
+  text-align: left; padding: 6px 12px; }
+.st-key-panel_side [data-testid="stButtonGroup"] button p { font-size: 12px; }
+@media (max-width: 640px) {
+  /* phone: logo row, then one row of keys (Streamlit would stack every column) */
+  .sv-tb-own { display: none; }
+  .st-key-topbar [data-testid="stHorizontalBlock"] { flex-direction: row !important; flex-wrap: nowrap !important; gap: 6px !important; }
+  .st-key-topbar [data-testid="stColumn"] { width: auto !important; min-width: 0 !important; flex: 1 1 0 !important; }
+  .st-key-topbar [data-testid="stHorizontalBlock"]:has([data-testid="stHorizontalBlock"]) { flex-wrap: wrap !important; }
+  .st-key-topbar [data-testid="stHorizontalBlock"]:has([data-testid="stHorizontalBlock"]) > [data-testid="stColumn"]:first-child { flex: 1 1 100%% !important; }
+  .st-key-topbar [data-testid="stHorizontalBlock"]:has([data-testid="stHorizontalBlock"]) > [data-testid="stColumn"]:last-child { flex: 0 0 64px !important; }
+  .st-key-topbar button { padding: 0 2px; }
+  .st-key-topbar button p { font-size: 11px !important; letter-spacing: .04em; }
 }
-.stApp [data-testid="stBaseButton-primary"] {
-  background: var(--sv-ink); border: 1px solid var(--sv-ink); color: #F4F4F5;
-}
-.stApp [data-testid="stBaseButton-primary"]:hover {
-  background: #000; box-shadow: 0 12px 30px -12px rgba(255,160,50,1); color: #fff;
-}
-.stApp [data-testid^="stBaseButton"] p { font-family: var(--sv-mono); font-size: 11.5px; }
 
-/* ---- inputs ------------------------------------------------------------ */
-.stApp [data-testid="stTextArea"] textarea {
-  background: var(--sv-card-2); border-radius: 16px; font-size: 14px; line-height: 1.55;
-}
-.stApp [data-baseweb="textarea"], .stApp [data-baseweb="base-input"] { border-radius: 16px; background: var(--sv-card-2); }
-.stApp [data-testid="stFileUploaderDropzone"] {
-  background: rgba(244,244,245,.7); border: 1px dashed rgba(20,20,22,.22); border-radius: 16px;
-}
-.stApp [data-testid="stWidgetLabel"] p { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-2);
-  text-transform: uppercase; letter-spacing: .06em; }
-.stApp [data-testid="stAlert"] { border-radius: 14px; }
+/* ---- buttons ------------------------------------------------------------- */
+.stApp [data-testid^="stBaseButton"] { border-radius: 8px; font-family: var(--sv-mono); font-size: 13px; letter-spacing: .08em;
+  text-transform: uppercase; transition: background .15s, color .15s, border-color .15s; }
+.stApp [data-testid="stBaseButton-secondary"] { background: var(--sv-panel); border: 1px solid var(--sv-line-2); color: var(--sv-ink); }
+.stApp [data-testid="stBaseButton-secondary"]:hover { background: var(--sv-glow); border-color: var(--sv-glow); color: var(--sv-on-accent); }
+.stApp [data-testid="stBaseButton-primary"] { background: linear-gradient(180deg, #FFA526, var(--sv-glow)); border: 0;
+  color: #1A1104; box-shadow: 0 6px 18px -8px rgba(240,138,0,.8); }
+.stApp [data-testid="stBaseButton-primary"]:hover { background: #EB9512; color: var(--sv-on-accent); }
+.stApp [data-testid^="stBaseButton"] p { font-family: var(--sv-mono); font-size: 13px; }
+.stApp [data-testid^="stBaseButton"]:disabled { opacity: .4; }
+.stApp [data-testid="stButtonGroup"] > div { flex-wrap: wrap; row-gap: 6px; }   /* filters wrap on small screens */
+.stApp [data-testid="stButtonGroup"] button { border-radius: 4px; font-family: var(--sv-mono); text-transform: uppercase;
+  letter-spacing: .06em; background: var(--sv-panel); color: var(--sv-ink-2); border-color: var(--sv-line-2); }
+.stApp [data-testid="stButtonGroup"] button[aria-checked="true"], .stApp [data-testid="stButtonGroup"] button[kind$="Active"] {
+  background: var(--sv-glow); color: var(--sv-on-accent); border-color: var(--sv-glow-2); }
+
+/* ---- inputs ------------------------------------------------------------- */
+.stApp [data-testid="stTextArea"] textarea, .stApp input[type="text"] { background: var(--sv-panel); color: var(--sv-ink);
+  caret-color: var(--sv-glow); border-radius: 4px; font-size: 14px; line-height: 1.6; }
+.stApp [data-baseweb="textarea"], .stApp [data-baseweb="base-input"] { border-radius: 4px; background: var(--sv-panel); border-color: var(--sv-line-2); }
+.stApp [data-testid="stFileUploaderDropzone"] { background: var(--sv-panel); border: 1px dashed var(--sv-line-2); border-radius: 4px; }
+.stApp [data-testid="stWidgetLabel"] p { font-family: var(--sv-mono); font-size: 12px; color: var(--sv-ink-2);
+  text-transform: uppercase; letter-spacing: .08em; }
+.stApp [data-testid="stAlert"] { border-radius: 4px; }
 .stApp hr { border-color: var(--sv-line); }
 
-/* ---- email rows -------------------------------------------------------- */
-[class*="st-key-row_"] {
-  background: rgba(246,246,247,.78); border-radius: 18px; padding: 14px 18px 14px 22px;
-  box-shadow: inset 0 0 0 1px var(--sv-line); position: relative; transition: background .2s, transform .2s, box-shadow .2s;
-}
-[class*="st-key-row_"]:hover { background: #FAFAFA; transform: translateY(-1px);
-  box-shadow: inset 0 0 0 1px rgba(20,20,22,.12), 0 18px 30px -24px rgba(20,20,22,.6); }
-[class*="st-key-row_"]::before {
-  content: ""; position: absolute; left: 8px; top: 16px; bottom: 16px; width: 3px; border-radius: 3px; background: var(--c);
-  box-shadow: 0 0 10px var(--c);
-}
-[class*="st-key-row_spam"] { --c: var(--sv-spam); }
-[class*="st-key-row_suspicious"] { --c: var(--sv-suspicious); }
-[class*="st-key-row_promotion"] { --c: var(--sv-promotion); }
-[class*="st-key-row_safe"] { --c: var(--sv-safe); }
-[class*="st-key-row_update"] { --c: var(--sv-update); }
-.sv-flag { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 6px 11px;
-  border-radius: 999px; font-family: var(--sv-mono); font-size: 11px; font-weight: 500; letter-spacing: .05em;
-  color: #fff; background: var(--sv-alert); box-shadow: 0 6px 18px -8px var(--sv-alert); }
-.sv-flag.lg { font-size: 12.5px; padding: 9px 14px; }
-.sv-alert-note { margin-top: 14px; padding: 12px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5;
-  background: color-mix(in srgb, var(--sv-alert) 10%%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sv-alert) 30%%, transparent); }
-.sv-alert-note b { color: var(--sv-alert); }
-.sv-row-s { font-weight: 600; font-size: 14.5px; line-height: 1.35; color: var(--sv-ink); }
-.sv-row-f { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-3); margin-top: 4px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ---- flags and badges ---------------------------------------------------- */
+.sv-flag { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 6px 11px; border-radius: 3px;
+  font-family: var(--sv-mono); font-size: 12px; letter-spacing: .08em; color: var(--sv-on-accent); background: var(--sv-alert); }
+.sv-flag.lg { font-size: 13.5px; padding: 9px 14px; }
+.sv-badge { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; padding: 6px 12px 6px 10px; border-radius: 3px;
+  font-family: var(--sv-mono); font-size: 12px; letter-spacing: .08em; color: var(--c);
+  background: color-mix(in srgb, var(--c) 10%%, var(--sv-panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%%, transparent); }
+.sv-badge i { width: 8px; height: 8px; border-radius: 1px; background: var(--c); }
+.sv-badge b { font-weight: 400; opacity: .8; }
+.sv-badge.lg { font-size: 14px; padding: 9px 16px 9px 13px; }
 
-/* ---- badge ------------------------------------------------------------- */
-.sv-badge { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
-  padding: 6px 12px 6px 10px; border-radius: 999px; font-family: var(--sv-mono); font-size: 11px;
-  font-weight: 500; letter-spacing: .06em; color: var(--c);
-  background: color-mix(in srgb, var(--c) 13%%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%%, transparent); }
-.sv-badge i { width: 8px; height: 8px; border-radius: 50%%; background: var(--c); box-shadow: 0 0 10px var(--c); }
-.sv-badge b { font-weight: 500; opacity: .75; }
-.sv-badge.lg { font-size: 13px; padding: 9px 16px 9px 13px; }
-
-/* ---- result card ------------------------------------------------------- */
-.sv-rc { border-radius: 22px; padding: 24px; background: #F7F7F8;
-  box-shadow: inset 0 0 0 1px var(--sv-line), 0 30px 60px -44px rgba(20,20,22,.55); margin-bottom: 14px; }
-.sv-rc-head { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
-.sv-rc-model { font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3); }
-.sv-meter { margin: 22px 0 6px; }
-.sv-meter-track { position: relative; height: 10px; border-radius: 999px;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--sv-safe) 30%%, #E4E4E6) 0 60%%,
-    color-mix(in srgb, var(--sv-suspicious) 38%%, #E4E4E6) 60%% 85%%,
-    color-mix(in srgb, var(--sv-spam) 42%%, #E4E4E6) 85%% 100%%); }
-.sv-meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--c); opacity: .9; }
-.sv-meter-dot { position: absolute; top: 50%%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%%;
-  background: #fff; box-shadow: 0 0 0 3px var(--c), 0 0 18px var(--c); }
-.sv-meter-scale { position: relative; height: 14px; margin-top: 8px; font-family: var(--sv-mono); font-size: 10px; color: var(--sv-ink-3); }
-.sv-meter-scale span { position: absolute; transform: translateX(-50%%); }
-.sv-meter-cap { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-2); margin-top: 4px; }
-.sv-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
-.sv-h4 { font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3); text-transform: uppercase;
-  letter-spacing: .08em; margin: 0 0 10px; }
-.sv-warn { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.sv-warn li { font-size: 12.5px; line-height: 1.4; padding: 8px 10px; border-radius: 10px; margin: 0;
-  background: color-mix(in srgb, var(--sv-suspicious) 10%%, transparent); }
-.sv-warn li.none { background: color-mix(in srgb, var(--sv-safe) 10%%, transparent); }
-.sv-wbar { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; font-size: 12px; margin-bottom: 6px; }
+/* ---- readouts, panels ------------------------------------------------------ */
+.sv-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; margin: 6px 0 16px; }
+.sv-tile { padding: 12px 14px 10px; border-radius: 4px; background: var(--sv-panel); box-shadow: inset 0 0 0 1px var(--sv-line); }
+.sv-tile .v { font-family: var(--sv-display); font-weight: 700; font-size: clamp(24px, 2.4vw, 32px); line-height: 1; color: var(--c); }
+.sv-tile .k { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-3); text-transform: uppercase; letter-spacing: .1em;
+  margin-top: 6px; display: flex; align-items: center; gap: 6px; }
+.sv-tile .k i { width: 7px; height: 7px; border-radius: 1px; background: var(--c); }
+.sv-panel { padding: clamp(14px, 2vw, 20px); border-radius: 4px; background: var(--sv-panel); box-shadow: inset 0 0 0 1px var(--sv-line); height: 100%%; }
+.sv-h4 { font-family: var(--sv-mono); font-size: 11.5px; color: var(--sv-ink-3); text-transform: uppercase; letter-spacing: .1em; margin: 0 0 10px; }
+.sv-note { font-family: var(--sv-mono); font-size: 12px; color: var(--sv-ink-2); margin-top: 8px; }
+.sv-wbar { display: grid; grid-template-columns: minmax(80px, 120px) 1fr; gap: 10px; align-items: center; font-size: 12.5px; margin-bottom: 6px; }
 .sv-wbar span:first-child { font-family: var(--sv-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sv-wbar .t { height: 6px; border-radius: 6px; background: rgba(20,20,22,.06); overflow: hidden; }
-.sv-wbar .t i { display: block; height: 100%%; border-radius: 6px; background: var(--c); }
-.sv-mail { font-size: 13.5px; line-height: 1.65; color: var(--sv-ink-2); padding: 16px 18px; border-radius: 16px;
-  background: rgba(20,20,22,.035); max-height: 380px; overflow: auto; margin-top: 18px; }
-.sv-mail mark { background: color-mix(in srgb, var(--sv-spam) 20%%, transparent); color: var(--sv-ink); padding: 0 3px; border-radius: 4px; }
-.sv-note { font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-2); margin-top: 8px; }
-
-/* ---- stat tiles -------------------------------------------------------- */
-.sv-tiles { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; margin: 6px 0 20px; }
-.sv-tile { position: relative; overflow: hidden; padding: 18px 18px 16px; border-radius: 18px;
-  background: rgba(246,246,247,.8); box-shadow: inset 0 0 0 1px var(--sv-line); }
-.sv-tile::after { content: ""; position: absolute; right: -30px; top: -30px; width: 100px; height: 100px; border-radius: 50%%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 40%%, transparent), transparent); }
-.sv-tile .v { font-family: var(--sv-display); font-size: 38px; font-weight: 500; line-height: 1; color: var(--c); }
-.sv-tile .k { font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3); text-transform: uppercase;
-  letter-spacing: .08em; margin-top: 8px; display: flex; align-items: center; gap: 6px; }
-.sv-tile .k i { width: 7px; height: 7px; border-radius: 50%%; background: var(--c); }
-
-[data-testid="stPlotlyChart"], [data-testid="stDataFrame"] {
-  background: rgba(246,246,247,.8); border-radius: 18px; padding: 8px; box-shadow: inset 0 0 0 1px var(--sv-line);
-}
-
-/* ---- insights (plain HTML charts: light and fast) ----------------------- */
-.sv-panel { padding: 22px; border-radius: 20px; background: rgba(246,246,247,.8); box-shadow: inset 0 0 0 1px var(--sv-line); height: 100%%; }
-.sv-donut-wrap { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
-.sv-donut { width: 170px; height: 170px; border-radius: 50%%; position: relative; flex: none; }
-.sv-donut::after { content: ""; position: absolute; inset: 22px; border-radius: 50%%; background: #F3F3F4;
-  box-shadow: inset 0 0 0 1px var(--sv-line); }
-.sv-donut span { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1;
-  font-family: var(--sv-display); font-size: 34px; font-weight: 500; }
-.sv-donut small { display: block; font-family: var(--sv-mono); font-size: 10px; color: var(--sv-ink-3); text-align: center; margin-top: -4px; }
-.sv-leg { display: grid; gap: 8px; font-size: 13px; }
-.sv-leg div { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center; min-width: 190px; }
-.sv-leg i { width: 10px; height: 10px; border-radius: 50%%; background: var(--c); box-shadow: 0 0 8px var(--c); }
-.sv-leg b { font-family: var(--sv-mono); font-weight: 500; font-size: 12px; }
-.sv-mtab { display: grid; gap: 0; }
-.sv-mrow { display: grid; grid-template-columns: minmax(150px, 1.2fr) repeat(4, 1fr) 70px; gap: 14px; align-items: center;
-  padding: 11px 0; border-top: 1px solid var(--sv-line); font-size: 13px; }
-.sv-mrow.h { border-top: 0; padding-top: 0; font-family: var(--sv-mono); font-size: 10px; color: var(--sv-ink-3);
-  text-transform: uppercase; letter-spacing: .08em; }
-.sv-mrow .n { font-weight: 600; display: flex; gap: 8px; align-items: center; }
-.sv-mrow .n em { font-style: normal; font-family: var(--sv-mono); font-size: 9.5px; font-weight: 500; padding: 2px 7px;
-  border-radius: 999px; background: var(--sv-ink); color: #F4F4F5; }
-.sv-cell { display: grid; gap: 5px; font-family: var(--sv-mono); font-size: 11.5px; }
-.sv-cell .t { height: 5px; border-radius: 5px; background: rgba(20,20,22,.07); overflow: hidden; }
-.sv-cell .t i { display: block; height: 100%%; border-radius: 5px; background: linear-gradient(90deg, #BDBDC2, var(--sv-ink)); }
-.sv-mrow.best .sv-cell .t i { background: linear-gradient(90deg, #FFCF7A, var(--sv-glow-2)); }
-.sv-mrow .ms { font-family: var(--sv-mono); font-size: 11.5px; color: var(--sv-ink-2); text-align: right; }
-.sv-cms { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.sv-cm { padding: 16px; border-radius: 18px; background: rgba(246,246,247,.8); box-shadow: inset 0 0 0 1px var(--sv-line); }
-.sv-cm h5 { margin: 0 0 12px; font-family: var(--sv-display); font-weight: 500; font-size: 15px; }
-.sv-cm-g { display: grid; grid-template-columns: 70px 1fr 1fr; gap: 4px; font-family: var(--sv-mono); font-size: 10px; color: var(--sv-ink-3); }
+.sv-wbar .t { height: 6px; background: var(--sv-panel-2); overflow: hidden; }
+.sv-wbar .t i { display: block; height: 100%%; background: var(--c); }
+.sv-cms { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%%), 1fr)); gap: 10px; }
+.sv-cm { padding: 14px; border-radius: 4px; background: var(--sv-panel); box-shadow: inset 0 0 0 1px var(--sv-line); }
+.sv-cm h5 { margin: 0 0 10px; font-family: var(--sv-mono); font-weight: 400; font-size: 13px; color: var(--sv-ink);
+  text-transform: uppercase; letter-spacing: .06em; }
+.sv-cm-g { display: grid; grid-template-columns: 70px 1fr 1fr; gap: 4px; font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3); }
 .sv-cm-g > div { display: grid; place-items: center; }
-.sv-cm-g .v { height: 46px; border-radius: 10px; font-size: 14px; font-weight: 500; color: var(--sv-ink); }
-.sv-cm-g .ok { background: color-mix(in srgb, var(--sv-safe) calc(var(--a) * 1%%), #F1F1F2); }
-.sv-cm-g .bad { background: color-mix(in srgb, var(--sv-spam) calc(var(--a) * 1%%), #F1F1F2); }
+.sv-cm-g .v { height: 38px; border-radius: 4px; font-family: var(--sv-display); font-weight: 600; font-size: 18px; color: var(--sv-ink); }
+.sv-cm-g .ok { background: color-mix(in srgb, var(--sv-safe) calc(var(--a) * 1%%), var(--sv-panel-2)); }
+.sv-cm-g .bad { background: color-mix(in srgb, var(--sv-spam) calc(var(--a) * 1%%), var(--sv-panel-2)); }
 .sv-cm-g .rl { justify-items: start; }
-.sv-acct { margin-top: 18px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.55); box-shadow: inset 0 0 0 1px var(--sv-line); }
-.sv-acct .k { font-family: var(--sv-mono); font-size: 10px; color: var(--sv-ink-3); text-transform: uppercase; letter-spacing: .08em; }
-.sv-acct .v { font-size: 13px; font-weight: 600; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  display: flex; gap: 8px; align-items: center; }
-.sv-acct .v i { width: 8px; height: 8px; border-radius: 50%%; background: var(--sv-safe); box-shadow: 0 0 8px var(--sv-safe); flex: none; }
-.sv-acct .v.off i { background: #B5B5BA; box-shadow: none; }
-@media (max-width: 760px) {
-  .sv-mrow { grid-template-columns: 1fr 1fr; }
-  .sv-mrow.h { display: none; }
-}
-
-@media (max-width: 1100px) { .sv-tiles { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 760px) {
-  [data-testid="stMainBlockContainer"] { margin: 16px 10px 60px; padding: 26px 18px 30px; border-radius: 20px; }
-  .sv-tiles { grid-template-columns: repeat(2, 1fr); }
-  .sv-grid2 { grid-template-columns: 1fr; }
+.sv-acct { margin-top: 14px; padding: 12px; border-radius: 4px; background: var(--sv-panel); box-shadow: inset 0 0 0 1px var(--sv-line); }
+.sv-acct .k { font-family: var(--sv-mono); font-size: 10.5px; color: var(--sv-ink-3); text-transform: uppercase; letter-spacing: .1em; }
+.sv-acct .v { font-size: 13px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; gap: 8px; align-items: center; color: var(--sv-ink); }
+.sv-acct .v i { width: 8px; height: 8px; border-radius: 1px; background: var(--sv-safe); flex: none; }
+.sv-acct .v.off i { background: var(--sv-ink-3); }
+.sv-crew { margin-top: 18px; padding-top: 10px; border-top: 1px dashed rgba(43,38,32,.3); font-family: var(--sv-mono); font-size: 11.5px; }
+.sv-crew .k { text-transform: uppercase; letter-spacing: .14em; color: var(--sv-ink-3); margin-bottom: 6px; }
+.sv-crew > div:not(.k):not(.g) { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.sv-crew b { font-weight: 500; color: var(--sv-ink); } .sv-crew span { color: var(--sv-ink-3); }
+.sv-crew .g { margin-top: 8px; color: var(--sv-ink-3); }
+.sv-plate { margin-top: clamp(20px, 3vw, 34px); padding-top: 12px; border-top: 1px dashed var(--sv-line-2);
+  display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: space-between; align-items: center;
+  font-family: var(--sv-mono); font-size: 11px; color: var(--sv-ink-3); letter-spacing: .08em; text-transform: uppercase; }
+.sv-plate b { color: var(--sv-ink); font-weight: 400; }
+.sv-plate a { color: var(--sv-ink-3); text-decoration: underline dotted; }
+@media (max-width: 480px) {
+  .stApp [data-testid^="stBaseButton"], .stApp [data-testid^="stBaseButton"] p { font-size: 12px; }
 }
 """
 
 
-@lru_cache(maxsize=2)
-def _css(home: bool) -> str:
-    css = (_CSS + MISTAKES_CSS.replace("%", "%%")) % {
+LOGO_SVG = ('<svg viewBox="0 0 32 32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" '
+            'stroke-linecap="square"><path d="M3 6h26M6 11h20M9 16h14M12 21h8M14.5 26h3"/></svg>')
+
+
+@lru_cache(maxsize=4)
+def _css(home: bool, fx: bool) -> str:
+    css = (_CSS + MISTAKES_CSS.replace("%", "%%") + PAGES_CSS.replace("%", "%%")) % {
         "fonts": _FONTS, "ink": INK, "ink2": INK_2, "ink3": INK_3, "glow": GLOW, "glow2": GLOW_2,
         "spam": LABEL_COLORS["Spam"], "susp": LABEL_COLORS["Suspicious"],
         "promo": LABEL_COLORS["Promotion"], "safe": LABEL_COLORS["Safe"],
         "upd": LABEL_COLORS["Update"], "alert": ALERT,
-        "fb": FONT_BODY, "fd": FONT_DISPLAY, "fm": FONT_MONO,
+        "fb": FONT_BODY, "fd": FONT_DISPLAY, "fm": FONT_MONO, "fl": FONT_LOGO,
     }
-    if home:   # :has() lets one page scope its own rules without touching the DOM
-        css = css.replace(".sv-home ", '.stApp:has(.sv-home-flag) ')
-    return f"<style>{css}</style>" + ('<span class="sv-home-flag"></span>' if home else "")
+    # :has() lets a page scope its own rules without touching Streamlit's DOM
+    css = css.replace(".sv-home ", ".stApp:has(.sv-home-flag) " if home else ".sv-never ")
+    css = css.replace(".sv-fx ", "html:has(.sv-fx-flag) " if fx else ".sv-never ")
+    flags = ('<span class="sv-home-flag"></span>' if home else "") + ('<span class="sv-fx-flag"></span>' if fx else "")
+    return f"<style>{css}</style>{flags}"
 
 
-def inject(home: bool = False) -> None:
-    """Global CSS. On the landing page the card chrome and sidebar are hidden."""
-    st.html(_css(home))
+def inject(home: bool = False, fx: bool = True) -> None:
+    """Global CSS. home: the landing page (its own header). fx: scanlines and glow."""
+    st.html(_css(home, fx))
+
+
+def tokens_css() -> str:
+    """Just the colour/font tokens (for components rendered in a shadow root)."""
+    return TOKENS % {
+        "ink": INK, "ink2": INK_2, "ink3": INK_3, "glow": GLOW, "glow2": GLOW_2,
+        "spam": LABEL_COLORS["Spam"], "susp": LABEL_COLORS["Suspicious"],
+        "promo": LABEL_COLORS["Promotion"], "safe": LABEL_COLORS["Safe"],
+        "upd": LABEL_COLORS["Update"], "alert": ALERT,
+        "fb": FONT_BODY, "fd": FONT_DISPLAY, "fm": FONT_MONO, "fl": FONT_LOGO,
+    }
+
+
+def topbar_owner() -> str:
+    """Owner plate for the top bar (the logo next to it is a Home button)."""
+    return (f'<div class="sv-tb-own"><span>property of</span><b>{escape(brand.TEAM_NAME)}</b>'
+            f'<span>{escape(brand.INSTITUTE)} · unit {escape(brand.MODEL_CODE)} · made by {escape(brand.MADE_BY)}</span></div>')
+
+
+def crew_plate() -> None:
+    """Team list at the foot of the sidebar menu."""
+    rows = "".join(f'<div><b>{escape(m["name"])}</b><span>{escape(m["roll"])}</span></div>' for m in brand.MEMBERS)
+    st.html(f'<div class="sv-crew"><div class="k">crew</div>{rows}'
+            + (f'<div class="g">guide · {escape(brand.GUIDE)}</div>' if brand.GUIDE else "") + "</div>")
+
+
+def topbar_brand() -> str:
+    """LCD logo + owner plate for the top bar (same as the landing header)."""
+    return (f'<div class="sv-tb"><div class="sv-tb-lcd">{LOGO_SVG}{escape(brand.PRODUCT)}</div>'
+            f'<div class="sv-tb-own"><span>property of</span><b>{escape(brand.TEAM_NAME)}</b>'
+            f'<span>{escape(brand.INSTITUTE)} · unit {escape(brand.MODEL_CODE)}</span></div></div>')
+
+
+def plate() -> None:
+    """Maker's plate at the foot of every app page."""
+    crew = " · ".join(f"{m['name']} ({m['roll']})" for m in brand.MEMBERS)
+    st.html(f'<div class="sv-plate"><span><b>{escape(brand.PRODUCT)} {escape(brand.MODEL_CODE)}</b> · '
+            f'serial {escape(brand.SERIAL)}</span>'
+            f'<span>{escape(brand.TEAM_NAME)} · {escape(crew)}</span></div>')
 
 
 # ---- HTML building blocks --------------------------------------------------
@@ -382,8 +424,8 @@ def style_plotly(fig, height: int = 300):
         legend=dict(font=dict(family=f"{FONT_MONO}, monospace", size=11)),
         hoverlabel=dict(font_family=f"{FONT_MONO}, monospace"),
     )
-    fig.update_xaxes(gridcolor="rgba(20,20,22,.07)", zerolinecolor="rgba(20,20,22,.12)")
-    fig.update_yaxes(gridcolor="rgba(20,20,22,.07)", zerolinecolor="rgba(20,20,22,.12)")
+    fig.update_xaxes(gridcolor="rgba(255,176,0,.07)", zerolinecolor="var(--sv-line-2)")
+    fig.update_yaxes(gridcolor="rgba(255,176,0,.07)", zerolinecolor="var(--sv-line-2)")
     return fig
 
 
@@ -394,7 +436,7 @@ def donut(counts: dict[str, int], total: int) -> str:
         if share:
             stops.append(f"{LABEL_COLORS[lab]} {acc:.2f}% {acc + share:.2f}%")
         acc += share
-    grad = f"conic-gradient({', '.join(stops)})" if stops else "#E4E4E6"
+    grad = f"conic-gradient({', '.join(stops)})" if stops else "var(--sv-panel-2)"
     legend = "".join(
         f'<div style="--c:{LABEL_COLORS[lab]}"><i></i><span>{lab}</span>'
         f'<b>{counts.get(lab, 0)} · {counts.get(lab, 0) / total:.0%}</b></div>'
@@ -417,21 +459,21 @@ MISTAKES_CSS = """
 .mx-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .mx-legend i { width: 10px; height: 10px; border-radius: 3px; }
 .mx-row { display: grid; grid-template-columns: minmax(170px, 220px) 1fr 120px; gap: 16px; align-items: center;
-  padding: 10px 0; border-top: 1px solid var(--sv-line); font-size: 13px; }
+  padding: 6px 0; border-top: 1px solid var(--sv-line); font-size: 13px; }
 .mx-name { font-weight: 600; display: flex; gap: 8px; align-items: center; }
-.mx-name em.base { background: transparent; color: var(--sv-ink); box-shadow: inset 0 0 0 1px var(--sv-ink); }
+.mx-name em.base { background: transparent; color: var(--sv-ink); box-shadow: inset 0 0 0 1px var(--sv-glow); }
 .mx-name em { font-style: normal; font-family: var(--sv-mono); font-size: 9.5px; font-weight: 500; padding: 2px 7px;
-  border-radius: 999px; background: var(--sv-ink); color: #F4F4F5; }
+  border-radius: 3px; background: var(--sv-glow); color: var(--sv-on-accent); }
 .mx-track { position: relative; height: 22px; display: flex; gap: 2px; }
 .mx-grid { position: absolute; inset: 0; pointer-events: none; }
-.mx-grid b { position: absolute; top: -4px; bottom: -4px; width: 1px; background: rgba(20,20,22,.08); }
+.mx-grid b { position: absolute; top: -4px; bottom: -4px; width: 1px; background: rgba(255,176,0,.07); }
 .mx-seg { position: relative; height: 100%; border-radius: 5px; display: grid; place-items: center;
-  font-family: var(--sv-mono); font-size: 10.5px; font-weight: 500; color: #fff; min-width: 2px; }
+  font-family: var(--sv-mono); font-size: 10.5px; font-weight: 500; color: var(--sv-on-accent); min-width: 2px; }
 .mx-fp { background: var(--sv-spam); }
-.mx-fn { background: #8A8A92; }
-.mx-row.best .mx-fn { background: #5E5E66; }
+.mx-fn { background: #6B5A3E; }
+.mx-row.best .mx-fn { background: #8A7146; }
 .mx-tot { font-family: var(--sv-mono); font-size: 12px; text-align: right; line-height: 1.35; }
-.mx-tot b { font-family: var(--sv-display); font-size: 20px; font-weight: 500; }
+.mx-tot b { font-family: var(--sv-display); font-size: 17px; font-weight: 700; }
 .mx-tot small { display: block; color: var(--sv-ink-3); font-size: 10.5px; }
 .mx-axis { display: grid; grid-template-columns: minmax(170px, 220px) 1fr 120px; gap: 16px; }
 .mx-ticks { position: relative; height: 16px; font-family: var(--sv-mono); font-size: 10px; color: var(--sv-ink-3); }
@@ -461,7 +503,7 @@ def mistakes_chart(results: dict, best: str, n_test: int, system: str | None = N
     grid = "".join(f'<b style="left:{pct(t)}"></b>' for t in range(0, scale + 1, step))
     out = ['<div class="mx"><div class="mx-legend">'
            '<span><i style="background:var(--sv-spam)"></i>real email flagged as spam</span>'
-           '<span><i style="background:#8A8A92"></i>spam missed</span></div>']
+           '<span><i style="background:#6B5A3E"></i>spam missed</span></div>']
     for name, v, fp, fn in rows:
         seg = lambda n, cls: (f'<span class="mx-seg {cls}" style="width:{pct(n)}">'
                               f'{n if n / scale >= 0.06 else ""}</span>') if n else ""
@@ -508,3 +550,109 @@ def account(email: str | None) -> str:
                 '<div class="v off"><i></i>not connected</div></div>')
     return (f'<div class="sv-acct"><div class="k">signed in as</div>'
             f'<div class="v" title="{escape(email)}"><i></i>{escape(email or "your Gmail")}</div></div>')
+
+
+# ---- page building blocks (Quick check, Model, Inbox) -------------------------
+PAGES_CSS = """
+/* LCD readouts: the same green screens as the landing page */
+.sv-lcds { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.sv-lcd { padding: 10px 14px 9px; border-radius: 10px; color: var(--sv-lcd-ink); background: var(--sv-lcd-face);
+  box-shadow: inset 0 0 0 1px rgba(255,176,0,.25), 0 12px 24px -18px rgba(30,20,8,.9); }
+.sv-lcd b { display: block; font-family: var(--sv-display); font-weight: 700; font-size: clamp(24px, 2.2vw, 32px); line-height: 1;
+  color: #FFE7B0; text-shadow: 0 0 14px rgba(255,176,0,.5); }
+.sv-lcd span { font-family: var(--sv-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+.stApp .sv-lcd small { display: block; margin-top: 4px; font-family: var(--sv-mono); font-size: 10.5px; color: inherit; opacity: .75; }
+
+/* pipeline: how a label is decided */
+.sv-pipe { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; counter-reset: step; }
+.sv-step { position: relative; padding: 14px 14px 12px; border-radius: 6px; background: var(--sv-panel);
+  box-shadow: inset 0 0 0 1px var(--sv-line); counter-increment: step; }
+.sv-step::before { content: "0" counter(step); display: block; font-family: var(--sv-display); font-weight: 700; font-size: 22px; line-height: 1;
+  color: var(--sv-glow); margin-bottom: 6px; }
+.sv-step:not(:last-child)::after { content: "▸"; position: absolute; right: -10px; top: 18px; z-index: 1; font-size: 14px; color: var(--sv-glow); }
+.sv-step h6 { margin: 0 0 6px; font-family: var(--sv-mono); font-weight: 400; font-size: 12.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--sv-ink); }
+.sv-step p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--sv-ink-2); }
+.sv-step code { font-size: 11.5px; padding: 0 3px; }
+@media (max-width: 1000px) { .sv-pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sv-step::after { display: none; } }
+@media (max-width: 520px) { .sv-pipe { grid-template-columns: minmax(0, 1fr); } }
+
+/* label rules */
+.sv-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.sv-rule { padding: 10px 12px; border-radius: 4px; background: color-mix(in srgb, var(--c) 7%, var(--sv-panel));
+  box-shadow: inset 3px 0 0 var(--c), inset 0 0 0 1px var(--sv-line); }
+.sv-rule b { display: flex; align-items: center; gap: 7px; font-family: var(--sv-mono); font-weight: 400; font-size: 12.5px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--c); }
+.sv-rule b i { width: 8px; height: 8px; border-radius: 1px; background: var(--c); }
+.sv-rule p { margin: 5px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--sv-ink-2); }
+
+/* section title inside a panel */
+.sv-sec { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.sv-sec h3 { margin: 0; font-family: var(--sv-display); font-weight: 700; font-size: clamp(17px, 1.5vw, 21px); line-height: 1;
+  text-transform: uppercase; color: var(--sv-ink); }
+.sv-sec h3 em { font-style: normal; color: var(--sv-glow); }
+.sv-sec span { font-family: var(--sv-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--sv-ink-3); }
+
+/* quick check: example cards */
+.st-key-panel_body [class*="st-key-qc_ex_"] button { min-height: 76px; justify-content: flex-start; text-align: left;
+  text-transform: none; letter-spacing: 0; padding: 10px 14px; border-radius: 10px; }
+.st-key-panel_body [class*="st-key-qc_ex_"] button p { font-family: var(--sv-body); font-size: 14px; font-weight: 600;
+  white-space: pre-line; line-height: 1.3; }
+/* model rail: 2 x 2 readouts */
+.st-key-panel_side .sv-lcds { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.st-key-panel_side .sv-lcd b { font-size: clamp(20px, 1.8vw, 26px); }
+/* empty state */
+.sv-empty { display: grid; place-items: center; text-align: center; gap: 6px; padding: clamp(24px, 4vw, 44px) 16px;
+  border-radius: 6px; border: 1px dashed var(--sv-line-2); color: var(--sv-ink-3); }
+.sv-empty b { font-family: var(--sv-display); font-weight: 700; font-size: 20px; color: var(--sv-ink-2); text-transform: uppercase; }
+.sv-empty p { margin: 0; max-width: 460px; font-size: 13px; line-height: 1.55; }
+
+.st-key-panel_page_check [data-testid="stPills"] button, .st-key-panel_check_in [data-testid="stPills"] button { font-family: var(--sv-mono); font-size: 12px; }
+[class*="st-key-panel"] + [class*="st-key-panel"], .st-key-topbar + div [class*="st-key-panel"] { margin-top: 0; }
+"""
+
+
+def section(title_html: str, aside: str = "") -> None:
+    """Panel section title. title_html is trusted markup written in app.py."""
+    st.html(f'<div class="sv-sec"><h3>{title_html}</h3>' + (f"<span>{escape(aside)}</span>" if aside else "") + "</div>")
+
+
+def lcds(items: list[tuple[str, str, str]]) -> str:
+    """Green LCD readouts: (value, label, small print)."""
+    return '<div class="sv-lcds">' + "".join(
+        f'<div class="sv-lcd"><b>{escape(v)}</b><span>{escape(k)}</span>'
+        + (f"<small>{escape(s)}</small>" if s else "") + "</div>" for v, k, s in items) + "</div>"
+
+
+def pipeline(spam: float, susp: float, list_spam: float, band: tuple[float, float]) -> str:
+    steps = [
+        ("read", "Subject, body and sender. From Gmail also the tab it sits in (Promotions, Updates) and whether "
+                 "the sender passed Gmail's checks."),
+        ("features", "Word TF-IDF (1–2 word phrases), character 3–5-grams for tricks like <code>fr33</code>, "
+                     "plus rule signals: links, urgency words, money, fake senders."),
+        ("linear svm", "A calibrated Linear SVM turns the features into a spam probability from 0 to 100%."),
+        ("2nd opinion", f"Only when the SVM is unsure ({band[0]:.0%}–{band[1]:.0%}): DistilBERT reads the email too "
+                        "and the two scores are averaged."),
+        ("label", f"Spam ≥ {spam:.0%} ({list_spam:.0%} for newsletters), Suspicious ≥ {susp:.0%} or a fake sender, "
+                  "otherwise Promotion, Update or Safe. Verified security mail gets the ⚑ alert flag."),
+    ]
+    return '<div class="sv-pipe">' + "".join(
+        f'<div class="sv-step"><h6>{escape(t)}</h6><p>{body}</p></div>' for t, body in steps) + "</div>"
+
+
+def label_rules(spam: float, susp: float) -> str:
+    text = {
+        "Spam": f"Spam probability ≥ {spam:.0%}. Scams, phishing, fake prizes.",
+        "Suspicious": f"{susp:.0%}–{spam:.0%}, or the sender pretends to be a brand it isn't.",
+        "Promotion": "Marketing you signed up for: Gmail's Promotions tab or sales wording.",
+        "Update": "Other newsletters and automated notices: receipts, terms, product news.",
+        "Safe": "Everything else: people, college, real security alerts.",
+    }
+    return '<div class="sv-rules">' + "".join(
+        f'<div class="sv-rule" style="--c:{LABEL_COLORS[lab]}"><b><i></i>{lab}</b><p>{escape(text[lab])}</p></div>'
+        for lab in LABELS) + "</div>"
+
+
+def empty(title: str, text: str) -> None:
+    st.html(f'<div class="sv-empty"><b>{escape(title)}</b><p>{escape(text)}</p></div>')
+

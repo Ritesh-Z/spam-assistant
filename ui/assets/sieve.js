@@ -16,8 +16,8 @@ let _threePromise = null;
 const loadThree = () => (_threePromise ||= import(THREE_URL));
 
 const LANES = ["spam", "suspicious", "promotion", "update", "safe"];
-const NEUTRAL = [0.93, 0.93, 0.94];   // card colour before it reaches the model
-const DIM = [0.80, 0.80, 0.82];       // card colour when another label is focused
+const NEUTRAL = [0.62, 0.40, 0.10];   // dim amber: a card before it reaches the model
+const DIM = [0.20, 0.15, 0.09];       // card colour when another label is focused
 
 function seeded(seed) {               // deterministic: the same picture every load
   let s = seed >>> 0;
@@ -35,11 +35,12 @@ function envelopeTexture(THREE) {
   const W = 160, H = 112, r = 14, c = document.createElement("canvas");
   c.width = W; c.height = H;
   const g = c.getContext("2d");
-  g.beginPath(); g.roundRect(3, 3, W - 6, H - 6, r);
-  g.fillStyle = "#ffffff"; g.fill();
-  g.lineWidth = 3; g.strokeStyle = "rgba(20,20,22,.22)"; g.stroke();
+  // wireframe envelope (vector-display look); the instance colour tints the lines
+  g.beginPath(); g.roundRect(4, 4, W - 8, H - 8, r);
+  g.fillStyle = "rgba(255,255,255,.07)"; g.fill();
+  g.lineWidth = 5; g.strokeStyle = "#ffffff"; g.stroke();
   g.beginPath(); g.moveTo(12, 14); g.lineTo(W / 2, H * 0.58); g.lineTo(W - 12, 14);
-  g.lineWidth = 3; g.strokeStyle = "rgba(20,20,22,.18)"; g.stroke();
+  g.lineWidth = 4; g.strokeStyle = "#ffffff"; g.stroke();
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -87,7 +88,7 @@ const MEM_FRAG = /* glsl */`
     gl_FragColor = vec4(vec3(1.0, 0.72, 0.32), a);
   }`;
 
-async function createSieveScene(container, { variant = "hero", cards = [], seed = 7 }) {
+async function createSieveScene(container, { variant = "hero", cards = [], seed = 7, onSort = null }) {
   const THREE = await loadThree();
   const hero = variant === "hero";
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -99,6 +100,7 @@ async function createSieveScene(container, { variant = "hero", cards = [], seed 
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
+  if (hero) scene.fog = new THREE.Fog(0x0b0805, 8.6, 30);   // the grid fades into the dark
   const camera = new THREE.PerspectiveCamera(hero ? 34 : 28, 1, 0.1, 100);
   camera.position.set(0, 0, hero ? 8 : 7);
   const group = new THREE.Group();
@@ -117,6 +119,15 @@ async function createSieveScene(container, { variant = "hero", cards = [], seed 
   const ring = new THREE.Group();
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffb347, transparent: true, opacity: hero ? 0.55 : 0.4, depthWrite: false }));
   group.add(halo, ring);
+
+  // arcade extras (hero only): a vector grid floor scrolling toward the viewer, and stars
+  const floor = new THREE.Group();
+  const floorMat = new THREE.LineBasicMaterial({ color: 0xffb000, transparent: true, opacity: 0.32 });
+  let floorRows = null, floorSpacing = 1;
+  const starGeo = new THREE.BufferGeometry();
+  const starMat = new THREE.PointsMaterial({ color: 0xffd38a, size: 0.05, transparent: true, opacity: 0.8, fog: false });
+  const stars = new THREE.Points(starGeo, starMat);
+  if (hero) scene.add(floor, stars);
 
   // layout (recomputed on resize)
   const L = {};
@@ -139,9 +150,9 @@ async function createSieveScene(container, { variant = "hero", cards = [], seed 
     Object.assign(L, { halfW, halfH });
     if (hero) {
       // The scene lives in the upper ~60% of the hero; text sits below it.
-      L.R = Math.min(halfH * 0.36, halfW * 0.3);
+      L.R = Math.min(halfH * (narrow ? 0.26 : 0.36), halfW * 0.3);
       L.ringX = narrow ? 0 : halfW * 0.06;
-      L.ringY = narrow ? halfH * 0.4 : halfH * 0.26;
+      L.ringY = narrow ? halfH * 0.52 : halfH * 0.26;      // tall screens: keep the gate above the text
       L.xStart = -halfW - 1; L.xEnd = halfW + 1;
       L.cloud = halfH * (narrow ? 0.35 : 0.55);
       L.laneY = (i) => L.ringY + L.R * (0.62 - 0.36 * i);   // five lanes, clear of the nav
@@ -157,6 +168,28 @@ async function createSieveScene(container, { variant = "hero", cards = [], seed 
       L.laneSpread = halfH * 0.05;
       L.card = halfH * 0.17;
     }
+    if (hero) {          // grid floor sized to the view
+      floor.traverse((o) => o.geometry?.dispose());
+      floor.clear();
+      const y0 = -halfH * 0.98, span = halfW * 4, far = -28, near = 7;
+      const cols = [];
+      for (let x = -span; x <= span + 0.001; x += span / 14) cols.push(x, y0, far, x, y0, near);
+      const cg = new THREE.BufferGeometry();
+      cg.setAttribute("position", new THREE.Float32BufferAttribute(cols, 3));
+      floor.add(new THREE.LineSegments(cg, floorMat));
+      floorSpacing = 1.4;
+      const rows = [];
+      for (let z = far; z <= near; z += floorSpacing) rows.push(-span, y0, z, span, y0, z);
+      const rg = new THREE.BufferGeometry();
+      rg.setAttribute("position", new THREE.Float32BufferAttribute(rows, 3));
+      floorRows = new THREE.LineSegments(rg, floorMat);
+      floor.add(floorRows);
+      const n = 260, sp = new Float32Array(n * 3), r2 = seeded(seed + 5);
+      for (let i = 0; i < n; i++) {
+        sp[i * 3] = (r2() - 0.5) * halfW * 5; sp[i * 3 + 1] = (r2() * 0.9 + 0.05) * halfH * 3; sp[i * 3 + 2] = -12 - r2() * 10;
+      }
+      starGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
+    }
     ring.traverse((o) => o.geometry?.dispose());
     ring.clear();
     const torus = new THREE.Mesh(new THREE.TorusGeometry(L.R, L.R * 0.045, 24, 160), ringMat);
@@ -171,12 +204,14 @@ async function createSieveScene(container, { variant = "hero", cards = [], seed 
 
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
   const pos = new THREE.Vector3(), scl = new THREE.Vector3(), col = new THREE.Color();
-  let focus = null;
+  let focus = null, sorted = 0;
 
   function place(t, dt) {
     cardsState.forEach((c, i) => {
+      const before = lerp(L.xStart, L.xEnd, c.u);
       c.u = (c.u + dt * c.speed) % 1;
       const x = lerp(L.xStart, L.xEnd, c.u);
+      if (before < L.ringX && x >= L.ringX) { sorted++; onSort?.(sorted); }   // through the gate
       let y, z, rot, mix;
       if (x < L.ringX) {   // approaching: wide cloud funnelling into the ring
         const s = smooth(L.xStart, L.ringX, x);
@@ -226,6 +261,8 @@ async function createSieveScene(container, { variant = "hero", cards = [], seed 
     group.rotation.y += (target.x * 0.08 - group.rotation.y) * 0.05;
     group.rotation.x += (target.y * 0.05 - group.rotation.x) * 0.05;
     place(t, dt);
+    if (floorRows) floorRows.position.z = (t * 1.6) % floorSpacing;          // the floor scrolls
+    if (hero) starMat.opacity = 0.65 + Math.sin(t * 2.3) * 0.15;
     renderer.render(scene, camera);
   }
   function tick() {
@@ -256,6 +293,8 @@ async function createSieveScene(container, { variant = "hero", cards = [], seed 
       cancelAnimationFrame(raf); io.disconnect(); ro.disconnect(); clearTimeout(resizeTimer);
       window.removeEventListener("pointermove", onMove);
       ring.traverse((o) => o.geometry?.dispose());
+      floor.traverse((o) => o.geometry?.dispose());
+      starGeo.dispose(); starMat.dispose(); floorMat.dispose();
       cardGeo.dispose(); cardMat.dispose(); ringMat.dispose(); memMat.dispose();
       halo.material.dispose(); envTex.dispose(); glowTex.dispose();
       renderer.dispose(); renderer.domElement.remove();

@@ -14,6 +14,13 @@ export default function (component) {
     empty.textContent = "No emails match this filter.";
     list.append(empty);
   }
+  list.onkeydown = (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const rows = [...list.querySelectorAll(".row")];
+    const i = rows.indexOf(parentElement.activeElement ?? document.activeElement);
+    const next = rows[Math.max(0, Math.min(rows.length - 1, (i < 0 ? -1 : i) + (e.key === "ArrowDown" ? 1 : -1)))];
+    if (next) { e.preventDefault(); next.focus(); next.scrollIntoView({ block: "nearest" }); }
+  };
   for (const r of data.rows) {
     const row = document.createElement("button");
     row.className = "row";

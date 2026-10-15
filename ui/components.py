@@ -12,7 +12,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from .theme import LABEL_COLORS, LABELS, MISTAKES_CSS, mistakes_chart
+from . import brand
+from .theme import LABEL_COLORS, LABELS
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 COLORS = {k.lower(): v for k, v in LABEL_COLORS.items()}
@@ -30,8 +31,8 @@ def _version() -> float:
 @lru_cache(maxsize=4)
 def _landing(version: float):
     return st.components.v2.component(
-        "sieve_landing", html=_read("landing.html"), css=_read("landing.css") + MISTAKES_CSS,
-        js=_read("sieve.js") + "\n" + _read("landing.js"))
+        "sieve_landing", html=_read("landing.html"), css=_read("landing.css") + "\n" + _read("strike.css"),
+        js=_read("sieve.js") + "\n" + _read("strike.js") + "\n" + _read("landing.js"))
 
 
 @lru_cache(maxsize=4)
@@ -50,14 +51,11 @@ def _hero_cards(n: int = 120) -> list[dict]:
     return [{"label": mix[i % len(mix)], "color": COLORS[mix[i % len(mix)]]} for i in range(n)]
 
 
-def landing(demo: list[dict], metrics: dict | None) -> str | None:
+def landing(metrics: dict | None, game: list[dict] | None = None) -> str | None:
     """Render the landing page. Returns a page name when a nav button is clicked."""
     result = _landing(_version())(
         key="landing",
-        data={"demo": demo, "metrics": metrics, "hero": _hero_cards(), "colors": COLORS,
-              "mistakes_html": mistakes_chart(metrics["results"], metrics["best_model"],
-                                              metrics["n_test"], metrics.get("system"))
-              if metrics else ""},
+        data={"metrics": metrics, "hero": _hero_cards(), "brand": brand.as_dict(), "game": game or []},
         on_nav_change=lambda: None,
     )
     return getattr(result, "nav", None)
